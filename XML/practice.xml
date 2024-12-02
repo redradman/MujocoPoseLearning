@@ -1,0 +1,85 @@
+<mujoco model="quadruped">
+    <compiler angle="degree"/>
+    <!-- <option timestep="0.005" gravity="0 0 -9.81"/> -->
+    
+    <!-- <default>
+        <joint armature="0.01" damping="0.1" limited="true"/>
+        <geom friction="1 0.5 0.5" density="1000" rgba="0.8 0.6 0.4 1"/>
+    </default> -->
+    
+    <worldbody>
+        <!-- Ground plane -->
+        <geom name="ground" type="plane" size="5 5 0.1" rgba="0.2 0.3 0.4 1"/>
+        
+        <!-- Light source -->
+        <light name="sun_light" pos="0 0 5" dir="0 0 -1" diffuse="1 1 1"/>
+        
+        <!-- Quadruped robot -->
+        <body name="torso" pos="0 0 0.5">
+            <!-- Free joint for the torso to allow movement -->
+            <joint name="root" type="free"/>
+            <!-- Torso geometry -->
+            <geom name="torso_geom" type="box" size="0.2 0.1 0.1" rgba="0.8 0.4 0.4 1"/>
+            
+            <!-- Front Right Leg -->
+            <body name="front_right_leg" pos="0.15 -0.1 0">
+                <joint name="hip1" type="hinge" axis="0 1 0" range="-45 45"/>
+                <geom name="thigh1_geom" type="capsule" fromto="0 0 0 0 0 -0.2" size="0.03"/>
+                <body name="lower_front_right_leg" pos="0 0 -0.2">
+                    <joint name="knee1" type="hinge" axis="0 1 0" range="0 90"/>
+                    <geom name="shin1_geom" type="capsule" fromto="0 0 0 0 0 -0.2" size="0.025"/>
+                </body>
+            </body>
+            
+            <!-- Front Left Leg -->
+            <body name="front_left_leg" pos="0.15 0.1 0">
+                <joint name="hip2" type="hinge" axis="0 1 0" range="-45 45"/>
+                <geom name="thigh2_geom" type="capsule" fromto="0 0 0 0 0 -0.2" size="0.03"/>
+                <body name="lower_front_left_leg" pos="0 0 -0.2">
+                    <joint name="knee2" type="hinge" axis="0 1 0" range="0 90"/>
+                    <geom name="shin2_geom" type="capsule" fromto="0 0 0 0 0 -0.2" size="0.025"/>
+                </body>
+            </body>
+            
+            <!-- Rear Right Leg -->
+            <body name="rear_right_leg" pos="-0.15 -0.1 0">
+                <joint name="hip3" type="hinge" axis="0 1 0" range="-45 45"/>
+                <geom name="thigh3_geom" type="capsule" fromto="0 0 0 0 0 -0.2" size="0.03"/>
+                <body name="lower_rear_right_leg" pos="0 0 -0.2">
+                    <joint name="knee3" type="hinge" axis="0 1 0" range="0 90"/>
+                    <geom name="shin3_geom" type="capsule" fromto="0 0 0 0 0 -0.2" size="0.025"/>
+                </body>
+            </body>
+            
+            <!-- Rear Left Leg -->
+            <body name="rear_left_leg" pos="-0.15 0.1 0">
+                <joint name="hip4" type="hinge" axis="0 1 0" range="-45 45"/>
+                <geom name="thigh4_geom" type="capsule" fromto="0 0 0 0 0 -0.2" size="0.03"/>
+                <body name="lower_rear_left_leg" pos="0 0 -0.2">
+                    <joint name="knee4" type="hinge" axis="0 1 0" range="0 90"/>
+                    <geom name="shin4_geom" type="capsule" fromto="0 0 0 0 0 -0.2" size="0.025"/>
+                </body>
+            </body>
+        </body>
+    </worldbody>
+    
+    <!-- Actuators for the joints -->
+    <actuator>
+        <motor name="hip1_motor" joint="hip1" ctrlrange="-1 1" gear="150"/>
+        <motor name="knee1_motor" joint="knee1" ctrlrange="-1 1" gear="150"/>
+        <motor name="hip2_motor" joint="hip2" ctrlrange="-1 1" gear="150"/>
+        <motor name="knee2_motor" joint="knee2" ctrlrange="-1 1" gear="150"/>
+        <motor name="hip3_motor" joint="hip3" ctrlrange="-1 1" gear="150"/>
+        <motor name="knee3_motor" joint="knee3" ctrlrange="-1 1" gear="150"/>
+        <motor name="hip4_motor" joint="hip4" ctrlrange="-1 1" gear="150"/>
+        <motor name="knee4_motor" joint="knee4" ctrlrange="-1 1" gear="150"/>
+    </actuator>
+    
+    <!-- Keyframes defining poses -->
+    <keyframe>
+        <!-- Keyframe 0: Default standing pose -->
+        <key name="default_pose" qpos="0 0 0.5  0 0 0 1  0 0  0 0  0 0  0 0"/>
+        <!-- Keyframe 1: Legs lifted pose -->
+        <key name="lifted_legs" time="1.0" qpos="0 0 0.5  0 0 0 1  0.349 -0.524  0.349 -0.524  0.349 -0.524  0.349 -0.524"/>
+    </keyframe>
+</mujoco>
