@@ -2,7 +2,6 @@ import ray
 from ray import tune, train
 from ray.tune import register_env
 from pathlib import Path
-import torch
 from register_env import env_creator  # Import the env_creator
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 
