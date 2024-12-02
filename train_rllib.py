@@ -145,13 +145,10 @@ config = {
         "type": "StochasticSampling",
         "random_timesteps": 60000,    # Reduced from 10000
     },
-
-    "kl_coeff": 0.2,
-    "kl_target": 0.01,
     
     # Normalize observations
-    # "normalize_actions": True,
-    # "normalize_observations": True,
+    "normalize_actions": True,
+    "normalize_observations": True,
     "normalize_advantages": True,
     
     # Rest of your existing config...
@@ -159,7 +156,7 @@ config = {
     
    # Add model configuration
     "model": {
-        "fcnet_hiddens": [256, 256],
+        "fcnet_hiddens": [128, 64, 128],
         # "fcnet_activation": "tanh",  # More stable than ReLU for this task
         "vf_share_layers": False,    # Separate value network
         "free_log_std": True,
