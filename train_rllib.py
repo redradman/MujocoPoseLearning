@@ -140,7 +140,7 @@ config = {
     
    # Add model configuration
     "model": {
-        "fcnet_hiddens": [128, 64, 128],
+        "fcnet_hiddens": [256, 256, 256],
         # "fcnet_activation": "tanh",
         "vf_share_layers": False,    # Separate value network
         "free_log_std": True,

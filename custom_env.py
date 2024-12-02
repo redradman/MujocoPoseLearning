@@ -45,8 +45,6 @@ class HumanoidEnv:
         
         num_observations = self.model.nq + self.model.nv
         self.observation_space = spaces.Box(
-            low=-np.inf,
-            high=np.inf,
             shape=(num_observations,),
             dtype=np.float32
         )
