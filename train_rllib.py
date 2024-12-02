@@ -84,7 +84,7 @@ config = {
         "render_mode": "rgb_array",
         "framerate": 60,
         "duration": 30.0,
-        "render_interval": 50,
+        "render_interval": 500,
         "reward_config": {
             "type": "walking",
             # params below is not explcitly used but it is a good way to pass parameters into the reward functions
@@ -105,8 +105,8 @@ config = {
     "lr": 1e-3,
     "lr_schedule": [
         [0, 1e-3],
-        [500_000, 5e-4],
-        [1_000_000, 1e-4],
+        [1_000_000, 5e-4],
+        [3_000_000, 1e-4],
     ],
     
     # More conservative PPO settings

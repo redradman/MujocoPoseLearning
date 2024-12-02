@@ -127,15 +127,15 @@ class HumanoidEnv:
             truncation_info['reason'] = 'bad_orientation'
 
         # Joint angle limits
-        joint_angles = self.data.qpos[7:]
-        if np.any(np.abs(joint_angles) > 2.0):  # ~115 degrees
-            truncated = True
-            truncation_info['reason'] = 'joint_limit'
+        # joint_angles = self.data.qpos[7:]
+        # if np.any(np.abs(joint_angles) > 2.0):  # ~115 degrees
+        #     truncated = True
+        #     truncation_info['reason'] = 'joint_limit'
         
         # Energy consumption check
-        if np.sum(np.square(self.data.ctrl)) > 100.0:
-            truncated = True
-            truncation_info['reason'] = 'excessive_force'
+        # if np.sum(np.square(self.data.ctrl)) > 100.0:
+        #     truncated = True
+        #     truncation_info['reason'] = 'excessive_force'
         ###################### End check for truncation ######################
 
         # Compute reward (will be 0 if truncated)
