@@ -1,9 +1,10 @@
 import mujoco
 import numpy as np
 import mediapy as media
-# import os
 from gymnasium import spaces
 from pathlib import Path
+from reward_functions import REWARD_FUNCTIONS
+
 
 class HumanoidEnv:
     def __init__(self, env_config):
@@ -14,6 +15,7 @@ class HumanoidEnv:
             self.framerate = env_config.get('framerate', 60)
             self.render_mode = env_config.get('render_mode')
             self.render_interval = env_config.get('render_interval', 100)
+            self.reward_config = env_config.get('reward_config', {'type': 'default'})
         else:
             # For backward compatibility
             self.model_path = env_config
@@ -21,12 +23,14 @@ class HumanoidEnv:
             self.framerate = 60
             self.render_mode = None
             self.render_interval = 100
+            self.reward_config = {'type': 'default'}
 
         print("Initializing environment with:")
         print(f"- model_path: {self.model_path}")
         print(f"- render_mode: {self.render_mode}")
         print(f"- framerate: {self.framerate}")
         print(f"- render_interval: {self.render_interval}")
+        print(f"- reward_config: {self.reward_config}")
         
         self.model = mujoco.MjModel.from_xml_path(self.model_path)
         self.data = mujoco.MjData(self.model)
@@ -133,69 +137,14 @@ class HumanoidEnv:
         return state
 
     def _compute_reward(self):
-        """Compute the reward with scaled-down values and focus on stability."""
-        height = self.data.qpos[2]  # z-position
-        forward_vel = self.data.qvel[0]  # x-velocity
+        """Compute reward based on the configured reward function."""
+        reward_type = self.reward_config.get('type', 'default')
+        reward_params = self.reward_config.get('params', None)
         
-        # Get orientation
-        orientation = self.data.qpos[3:7]  # quaternion
-        euler = self.quaternion_to_euler(orientation)
-        roll, pitch = euler[0], euler[1]
+        if reward_type not in REWARD_FUNCTIONS:
+            raise ValueError(f"Unknown reward type: {reward_type}")
         
-        self.reward_components = {
-            'stability': 0.0,
-            'posture': 0.0,
-            'height': 0.0,
-            'forward': 0.0,
-            'energy': 0.0
-        }
-        
-        # Early termination conditions
-        if (height < 0.7 or 
-            abs(roll) > 0.8 or 
-            abs(pitch) > 0.8):
-            return -1.0  # Negative reward for falling
-        
-        # Base reward for staying alive (small)
-        base_reward = 0.1
-        
-        # 1. Stability Reward (max 0.3)
-        orientation_penalty = np.square(roll) + np.square(pitch)
-        self.reward_components['stability'] = 0.3 * np.exp(-3.0 * orientation_penalty)
-        
-        # 2. Height Maintenance (max 0.2)
-        target_height = 1.3
-        height_diff = abs(height - target_height)
-        self.reward_components['height'] = 0.2 * np.exp(-2.0 * height_diff)
-        
-        # 3. Posture Control (max 0.2)
-        joint_angles = self.data.qpos[7:]
-        joint_velocities = self.data.qvel[6:]
-        
-        angle_penalty = np.sum(np.square(joint_angles)) * 0.02
-        velocity_penalty = np.sum(np.square(joint_velocities)) * 0.02
-        self.reward_components['posture'] = 0.2 * np.exp(-(angle_penalty + velocity_penalty))
-        
-        # 4. Forward Motion (max 0.1)
-        if height > 1.0 and abs(roll) < 0.3 and abs(pitch) < 0.3:
-            self.reward_components['forward'] = 0.1 * np.clip(forward_vel, 0, 1.0)
-        
-        # 5. Energy Efficiency (max 0.1)
-        ctrl = self.data.ctrl
-        energy_penalty = np.sum(np.square(ctrl)) * 0.05
-        self.reward_components['energy'] = 0.1 * np.exp(-energy_penalty)
-        
-        # Combine rewards
-        total_reward = base_reward + sum(self.reward_components.values())
-        
-        # Small bonus for very good stability (max additional 0.1)
-        if (height > 1.0 and 
-            abs(roll) < 0.2 and 
-            abs(pitch) < 0.2 and
-            forward_vel >= 0):
-            total_reward += 0.1
-        
-        return float(total_reward)
+        return REWARD_FUNCTIONS[reward_type](self.data, reward_params)
 
     def quaternion_to_euler(self, quat):
         """Convert quaternion to euler angles."""

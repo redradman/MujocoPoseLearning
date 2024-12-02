@@ -113,28 +113,40 @@ config = {
         "framerate": 60,
         "duration": 30.0,
         "render_interval": 100,
+        "reward_config": {
+            "type": "stand_still",
+            # params below is not explcitly use but it is a good way to pass parameters into the reward functions
+            # "params": {
+            #     # Any parameters specific to the reward function
+            #     "forward_weight": 1.0,
+            #     "energy_weight": 0.1,
+            # }
+        }
     },
+
+    "framework": "torch", # Use PyTorch
     # Reduce number of workers for rendering
     "num_workers": 8,  # Use only one worker for rendering
     "num_envs_per_worker": 1,
+    "use_gae": True,
     # Reduce learning rate and use a more conservative schedule
-    "lr": 1e-4,
-    # "lr_schedule": [
-    #     [0, 3e-4],
-    #     [1000000, 1e-4],
-    #     [2000000, 5e-5]
-    # ],
+    "lr": 5e-4,
+    "lr_schedule": [
+        [0, 5e-4],
+        [100_000, 2e-4],
+        [1_000_000, 1e-4],
+    ],
     
     # More conservative PPO settings
-    "clip_param": 0.1,              # Reduced from 0.3
+    "clip_param": 0.3,             
     "entropy_coeff": 0.01,        
     "gamma": 0.995,          
-    "lambda_": 0.97,                # Reduced from 0.98
+    "lambda_": 0.95,           
     
     # Smaller batch sizes for more stable updates
-    "train_batch_size": 4000,       # Reduced from 8000
-    "sgd_minibatch_size": 64,      # Increased from 64
-    "num_sgd_iter": 10,             # Reduced from 15
+    "train_batch_size": 8000,      
+    "sgd_minibatch_size": 128,      
+    "num_sgd_iter": 10,             
     
     "vf_clip_param": 5.0,
     # Add gradient clipping
@@ -143,7 +155,7 @@ config = {
     # More conservative exploration
     "exploration_config": {
         "type": "StochasticSampling",
-        "random_timesteps": 60000,    # Reduced from 10000
+        "random_timesteps": 60000,    
     },
     
     # Normalize observations
@@ -157,7 +169,7 @@ config = {
    # Add model configuration
     "model": {
         "fcnet_hiddens": [128, 64, 128],
-        # "fcnet_activation": "tanh",  # More stable than ReLU for this task
+        # "fcnet_activation": "tanh",
         "vf_share_layers": False,    # Separate value network
         "free_log_std": True,
     },
