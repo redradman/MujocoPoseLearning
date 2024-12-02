@@ -48,7 +48,7 @@ class HumanoidEnv:
             low=-np.inf,
             high=np.inf,
             shape=(num_observations,),
-            dtype=np.float64
+            dtype=np.float32
         )
 
         num_actions = self.model.nu
@@ -103,10 +103,41 @@ class HumanoidEnv:
         
         state = self._get_state()
         
-        # Check for truncation first
+        # Get key state information
         height = self.data.qpos[2]
-        truncated = height < 0.8  # Early truncation if COM is too low
+        orientation = self.data.qpos[3:7]
+        euler = self.quaternion_to_euler(orientation)
+        roll, pitch = euler[0], euler[1]
         
+        ############# Check multiple conditions for truncation #############
+        truncated = False
+        truncation_info = {}
+        
+        # Height check (too low or too high)
+        if height < 0.7:
+            truncated = True
+            truncation_info['reason'] = 'too_low'
+        elif height > 2.0:  # Jumping/unstable behavior
+            truncated = True
+            truncation_info['reason'] = 'too_high'
+        
+        # Orientation check (falling over)
+        if abs(roll) > 1.0 or abs(pitch) > 1.0:
+            truncated = True
+            truncation_info['reason'] = 'bad_orientation'
+
+        # Joint angle limits
+        joint_angles = self.data.qpos[7:]
+        if np.any(np.abs(joint_angles) > 2.0):  # ~115 degrees
+            truncated = True
+            truncation_info['reason'] = 'joint_limit'
+        
+        # Energy consumption check
+        if np.sum(np.square(self.data.ctrl)) > 100.0:
+            truncated = True
+            truncation_info['reason'] = 'excessive_force'
+        ###################### End check for truncation ######################
+
         # Compute reward (will be 0 if truncated)
         reward = self._compute_reward()
         
@@ -117,8 +148,13 @@ class HumanoidEnv:
         info = {
             'reward_components': getattr(self, 'reward_components', {}),
             'height': height,
+            'orientation': {
+                'roll': roll,
+                'pitch': pitch
+            },
             'forward_velocity': self.data.qvel[0],
             'truncated': truncated,
+            'truncation_info': truncation_info,
             'terminated': terminated
         }
         
@@ -132,9 +168,9 @@ class HumanoidEnv:
         return state, reward, terminated, truncated, info
 
     def _get_state(self):
+        """Get the current state of the environment."""
         state = np.concatenate([self.data.qpos, self.data.qvel])
-        print(f"State shape: {state.shape}")  # Debugging output
-        return state
+        return state.astype(np.float32)
 
     def _compute_reward(self):
         """Compute reward based on the configured reward function."""

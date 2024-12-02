@@ -67,9 +67,9 @@ def default_reward(env_data, params=None):
     height = env_data.qpos[2]
     forward_vel = env_data.qvel[0]
     orientation = env_data.qpos[3:7]
-    joint_angles = env_data.qpos[7:]
-    joint_velocities = env_data.qvel[6:]
-    ctrl = env_data.ctrl
+    # joint_angles = env_data.qpos[7:]
+    # joint_velocities = env_data.qvel[6:]
+    # ctrl = env_data.ctrl
     
     # Early termination
     if height < 0.7:

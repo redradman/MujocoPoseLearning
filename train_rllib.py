@@ -1,31 +1,10 @@
 import ray
-from ray import tune
-from ray.rllib.algorithms.ppo import PPO
+from ray import tune, train
 from ray.tune import register_env
-# import os
 from pathlib import Path
 import torch
 from register_env import env_creator  # Import the env_creator
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
-import logging
-# import numpy as np
-
-# Set logging levels
-logging.basicConfig(level=logging.INFO)
-logging.getLogger("ray").setLevel(logging.INFO)
-logging.getLogger("ray.rllib").setLevel(logging.INFO)
-logging.getLogger("ray.tune").setLevel(logging.INFO)
-
-# Add a custom logger for our rendering
-render_logger = logging.getLogger("render")
-render_logger.setLevel(logging.DEBUG)
-
-# Create a console handler with a higher log level
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-console_handler.setFormatter(formatter)
-render_logger.addHandler(console_handler)
 
 # Register the custom environment
 register_env("HumanoidEnv", env_creator)
@@ -51,28 +30,21 @@ class RenderingCallbacks(DefaultCallbacks):
     def __init__(self):
         super().__init__()
         self.episode_counter = 0
-        render_logger.info("Initialized RenderingCallbacks")
     
     def on_episode_start(self, *, worker, base_env, policies, episode, env_index, **kwargs):
         self.episode_counter += 1
         env = base_env.get_sub_environments()[0]
-        render_logger.info(f"=== Starting render for episode {self.episode_counter} ===")
         env.render_mode = "rgb_array"
         env.frames = []
-        render_logger.debug("Render mode set to rgb_array, frames initialized")
 
     def on_episode_end(self, *, worker, base_env, policies, episode, env_index, **kwargs):
         env = base_env.get_sub_environments()[0]
-        render_logger.info(f"=== Ending episode {self.episode_counter} ===")
         
         # Get render interval from config
         render_interval = env.render_interval
         
         # Save video based on configured interval
         if self.episode_counter % render_interval == 0:
-            render_logger.info(f"Saving video for episode {self.episode_counter}")
-            render_logger.debug(f"Number of frames collected: {len(env.frames)}")
-            render_logger.debug(f"Episode length: {episode.length}")
             env.save_video(self.episode_counter)
         else:
             # Clear frames without saving
@@ -102,7 +74,7 @@ ray.init(
     dashboard_host="127.0.0.1",
     include_dashboard=True,
     ignore_reinit_error=True,
-    log_to_driver=False
+    log_to_driver=False,
 )
 
 # THEN create the config
@@ -115,7 +87,7 @@ config = {
         "render_interval": 100,
         "reward_config": {
             "type": "stand_still",
-            # params below is not explcitly use but it is a good way to pass parameters into the reward functions
+            # params below is not explcitly used but it is a good way to pass parameters into the reward functions
             # "params": {
             #     # Any parameters specific to the reward function
             #     "forward_weight": 1.0,
@@ -124,7 +96,7 @@ config = {
         }
     },
 
-    "framework": "torch", # Use PyTorch
+    # "framework": "torch", # Use PyTorch
     # Reduce number of workers for rendering
     "num_workers": 8,  # Use only one worker for rendering
     "num_envs_per_worker": 1,
@@ -179,14 +151,89 @@ config = {
 }
 
 # Run the training
-tune.run(
-    PPO,
-    config=config,
-    stop={"training_iteration": 10000},
-    storage_path=str(storage_path),  # Convert Path to string
-    name="humanoid_training",
-    checkpoint_freq=50,
-    keep_checkpoints_num=10,
-    checkpoint_at_end=True,
+tuner = tune.Tuner(
+    "PPO",
+    param_space=config,
+    run_config=train.RunConfig(
+        storage_path=str(storage_path),
+        name="humanoid_training",
+        stop={"training_iteration": 10000},
+        checkpoint_config=train.CheckpointConfig(
+            checkpoint_frequency=50,
+            checkpoint_score_attribute="episode_reward_mean",
+            num_to_keep=10,
+            checkpoint_at_end=True
+        ),
+        verbose=3,
+    ),
 )
 
+tuner.fit()
+
+
+
+
+
+
+
+
+
+
+# import logging
+
+# # Set logging levels
+# logging.basicConfig(level=logging.INFO)
+# logging.getLogger("ray").setLevel(logging.INFO)
+# logging.getLogger("ray.rllib").setLevel(logging.INFO)
+# logging.getLogger("ray.tune").setLevel(logging.INFO)
+
+# # Add a custom logger for our rendering
+# render_logger = logging.getLogger("render")
+# render_logger.setLevel(logging.DEBUG)
+
+# # Create a console handler with a higher log level
+# console_handler = logging.StreamHandler()
+# console_handler.setLevel(logging.DEBUG)
+# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# console_handler.setFormatter(formatter)
+# render_logger.addHandler(console_handler)
+
+
+
+# call back fucntion with logging for debugging
+
+# class RenderingCallbacks(DefaultCallbacks):
+#     def __init__(self):
+#         super().__init__()
+#         self.episode_counter = 0
+#         render_logger.info("Initialized RenderingCallbacks")
+    
+#     def on_episode_start(self, *, worker, base_env, policies, episode, env_index, **kwargs):
+#         self.episode_counter += 1
+#         env = base_env.get_sub_environments()[0]
+#         render_logger.info(f"=== Starting render for episode {self.episode_counter} ===")
+#         env.render_mode = "rgb_array"
+#         env.frames = []
+#         render_logger.debug("Render mode set to rgb_array, frames initialized")
+
+#     def on_episode_end(self, *, worker, base_env, policies, episode, env_index, **kwargs):
+#         env = base_env.get_sub_environments()[0]
+#         render_logger.info(f"=== Ending episode {self.episode_counter} ===")
+        
+#         # Get render interval from config
+#         render_interval = env.render_interval
+        
+#         # Save video based on configured interval
+#         if self.episode_counter % render_interval == 0:
+#             render_logger.info(f"Saving video for episode {self.episode_counter}")
+#             render_logger.debug(f"Number of frames collected: {len(env.frames)}")
+#             render_logger.debug(f"Episode length: {episode.length}")
+#             env.save_video(self.episode_counter)
+#         else:
+#             # Clear frames without saving
+#             env.frames = []
+#             if env.renderer:
+#                 env.renderer.close()
+#                 env.renderer = None
+
+# from ray.rllib.algorithms.ppo import PPO
