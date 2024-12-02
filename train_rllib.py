@@ -86,7 +86,7 @@ config = {
         "duration": 30.0,
         "render_interval": 100,
         "reward_config": {
-            "type": "stand_still",
+            "type": "walking",
             # params below is not explcitly used but it is a good way to pass parameters into the reward functions
             # "params": {
             #     # Any parameters specific to the reward function
@@ -111,7 +111,7 @@ config = {
     
     # More conservative PPO settings
     "clip_param": 0.3,             
-    "entropy_coeff": 0.01,        
+    "entropy_coeff": 0.02,        
     "gamma": 0.995,          
     "lambda_": 0.95,           
     

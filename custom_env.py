@@ -42,17 +42,19 @@ class HumanoidEnv:
         if self.render_mode == "rgb_array":
             print("Creating renderer during init")
             self.renderer = mujoco.Renderer(self.model)
-        
+                
         num_observations = self.model.nq + self.model.nv
         self.observation_space = spaces.Box(
+            low=-np.inf,
+            high=np.inf,
             shape=(num_observations,),
-            dtype=np.float32
+            dtype=np.float64
         )
 
         num_actions = self.model.nu
         self.action_space = spaces.Box(
-            low=-1.0,
-            high=1.0,
+            low=-0.4,
+            high=0.4,
             shape=(num_actions,),
             dtype=np.float32
         )
