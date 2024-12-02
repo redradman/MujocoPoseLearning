@@ -111,7 +111,12 @@ config = {
     
     # More conservative PPO settings
     "clip_param": 0.3,             
-    "entropy_coeff": 0.02,        
+    "entropy_coeff": 0.2,
+    "entropy_coeff_schedule": [
+        [0, 0.1],           # Start at 0.1
+        [1000000, 0.05],    # Decrease to 0.05 after 1M steps
+        [2000000, 0.01],    # Decrease to 0.01 after 2M steps
+    ],        
     "gamma": 0.995,          
     "lambda_": 0.95,           
     
@@ -127,7 +132,7 @@ config = {
     # More conservative exploration
     "exploration_config": {
         "type": "StochasticSampling",
-        "random_timesteps": 60000,    
+        "random_timesteps": 100_000,    
     },
     
     # Normalize observations
@@ -160,7 +165,7 @@ tuner = tune.Tuner(
         stop={"training_iteration": 10000},
         checkpoint_config=train.CheckpointConfig(
             checkpoint_frequency=50,
-            checkpoint_score_attribute="episode_reward_mean",
+            checkpoint_score_attribute="env_runners/episode_reward_mean",
             num_to_keep=10,
             checkpoint_at_end=True
         ),

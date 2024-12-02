@@ -201,7 +201,6 @@ def comprehensive_walking_reward(env_data, params=None):
     # Extract state information
     height = env_data.qpos[2]  # z-position (height)
     orientation = env_data.qpos[3:7]  # quaternion
-    forward_pos = env_data.qpos[0]  # x-position
     forward_vel = env_data.qvel[0]  # forward velocity
     lateral_vel = env_data.qvel[1]  # side velocity
     ctrl = env_data.ctrl  # control actions
@@ -210,57 +209,41 @@ def comprehensive_walking_reward(env_data, params=None):
     euler = quaternion_to_euler(orientation)
     roll, pitch, _ = euler
     
-    # 1. Early termination conditions
-    if height < 0.72:  # Fallen
-        return -10.0
+    # 1. Early termination with larger penalty
+    if height < 0.8:  # Increased height threshold
+        return -20.0  # Increased penalty for falling
     
     reward = 0.0
-    reward_info = {}  # Store component-wise rewards for debugging
     
-    # 2. Forward Progress Reward (0.0 to 1.0)
-    forward_reward = np.clip(forward_vel, 0, 1.0)
-    reward += 1.0 * forward_reward
-    reward_info['forward'] = forward_reward
+    # 2. Stability First (Primary Reward)
+    # Orientation stability (0.0 to 1.0)
+    orientation_score = np.exp(-2.0 * (np.square(roll) + np.square(pitch)))
+    reward += 1.0 * orientation_score
     
-    # 3. Energy Efficiency (control cost) (-1.0 to 0.0)
-    ctrl_cost = np.sum(np.square(ctrl)) * 0.1
-    reward -= ctrl_cost
-    reward_info['energy'] = -ctrl_cost
-    
-    # 4. Stability Rewards
-    # 4.1 Orientation stability (-1.0 to 0.0)
-    orientation_cost = (np.square(roll) + np.square(pitch)) * 0.5
-    reward -= orientation_cost
-    reward_info['orientation'] = -orientation_cost
-    
-    # 4.2 Height maintenance (-0.5 to 0.5)
+    # Height maintenance (0.0 to 1.0)
     target_height = 1.3
-    height_diff = abs(height - target_height)
-    height_reward = 0.5 * np.exp(-2.0 * height_diff)
-    reward += height_reward
-    reward_info['height'] = height_reward
+    height_score = np.exp(-3.0 * abs(height - target_height))
+    reward += 1.0 * height_score
+    
+    # 3. Forward Progress (Only if stable)
+    # Scale forward reward by stability
+    stability_factor = min(orientation_score, height_score)
+    forward_reward = np.clip(forward_vel, 0, 1.0)
+    reward += 0.5 * forward_reward * stability_factor
+    
+    # 4. Energy Efficiency
+    ctrl_cost = np.sum(np.square(ctrl)) * 0.01
+    reward -= ctrl_cost
     
     # 5. Natural Motion Penalties
-    # 5.1 Lateral movement penalty (-0.5 to 0.0)
-    lateral_penalty = np.square(lateral_vel) * 0.5
+    # Lateral movement penalty
+    lateral_penalty = np.square(lateral_vel) * 0.1
     reward -= lateral_penalty
-    reward_info['lateral'] = -lateral_penalty
     
-    # 5.2 Velocity consistency (-0.5 to 0.5)
-    target_velocity = 1.0
-    vel_diff = abs(forward_vel - target_velocity)
-    velocity_reward = 0.5 * np.exp(-2.0 * vel_diff)
-    reward += velocity_reward
-    reward_info['velocity'] = velocity_reward
-    
-    # 6. Joint velocity penalties (-0.5 to 0.0)
-    joint_velocities = env_data.qvel[6:]  # Skip root velocities
-    joint_penalty = np.sum(np.square(joint_velocities)) * 0.005
+    # Joint velocity penalties (prevent jerky motion)
+    joint_velocities = env_data.qvel[6:]
+    joint_penalty = np.sum(np.square(joint_velocities)) * 0.001
     reward -= joint_penalty
-    reward_info['joint_vel'] = -joint_penalty
-    
-    # Store reward components for debugging
-    # env_data.reward_components = reward_info
     
     return float(reward)
 
