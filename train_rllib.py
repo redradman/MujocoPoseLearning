@@ -112,7 +112,7 @@ config = {
         "render_mode": "rgb_array",
         "framerate": 60,
         "duration": 30.0,
-        "render_interval": 1,
+        "render_interval": 100,
     },
     # Reduce number of workers for rendering
     "num_workers": 8,  # Use only one worker for rendering
