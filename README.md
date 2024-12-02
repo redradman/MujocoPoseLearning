@@ -2,7 +2,7 @@
 
 
 ### Setup
-To setup the conda environment to run code locally:
+make sure that [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) is installed and then to setup the conda environment to run code locally:
 ```bash
 conda env create -f environment.yml
 ```
