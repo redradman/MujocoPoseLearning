@@ -5,6 +5,7 @@ from gymnasium import spaces
 from pathlib import Path
 from reward_functions import REWARD_FUNCTIONS
 
+CLIP_OBSERVATION_VALUE = 5
 
 class HumanoidEnv:
     def __init__(self, env_config):
@@ -45,8 +46,8 @@ class HumanoidEnv:
                 
         num_observations = self.model.nq + self.model.nv
         self.observation_space = spaces.Box(
-            low=-np.inf,
-            high=np.inf,
+            low=-CLIP_OBSERVATION_VALUE,
+            high=CLIP_OBSERVATION_VALUE,
             shape=(num_observations,),
             dtype=np.float64
         )
@@ -169,8 +170,10 @@ class HumanoidEnv:
 
     def _get_state(self):
         """Get the current state of the environment."""
-        state = np.concatenate([self.data.qpos, self.data.qvel])
-        return state.astype(np.float32)
+        qpos = self.data.qpos.copy()
+        qvel = self.data.qvel.copy()
+        state = np.concatenate([qpos, qvel])
+        return np.clip(state, -CLIP_OBSERVATION_VALUE, CLIP_OBSERVATION_VALUE)
 
     def _compute_reward(self):
         """Compute reward based on the configured reward function."""

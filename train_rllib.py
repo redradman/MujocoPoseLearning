@@ -9,8 +9,6 @@ from ray.rllib.algorithms.callbacks import DefaultCallbacks
 # Register the custom environment
 register_env("HumanoidEnv", env_creator)
 
-# Check for MPS availability
-mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
 @ray.remote
 class EpisodeCounter:
     def __init__(self):
@@ -45,13 +43,17 @@ class RenderingCallbacks(DefaultCallbacks):
         
         # Save video based on configured interval
         if self.episode_counter % render_interval == 0:
-            env.save_video(self.episode_counter)
-        else:
-            # Clear frames without saving
-            env.frames = []
-            if env.renderer:
-                env.renderer.close()
-                env.renderer = None
+            # Check if we have frames before trying to save
+            if env.frames and len(env.frames) > 0:
+                env.save_video(self.episode_counter)
+            else:
+                print(f"Warning: No frames to save for episode {self.episode_counter}")
+        
+        # Clear frames regardless of whether we saved or not
+        env.frames = []
+        if env.renderer:
+            env.renderer.close()
+            env.renderer = None
 
 # Get the absolute path to your project root
 project_root = Path(__file__).parent
@@ -84,7 +86,7 @@ config = {
         "render_mode": "rgb_array",
         "framerate": 60,
         "duration": 30.0,
-        "render_interval": 500,
+        "render_interval": 250,
         "reward_config": {
             "type": "walking",
             # params below is not explcitly used but it is a good way to pass parameters into the reward functions
@@ -99,14 +101,14 @@ config = {
     # "framework": "torch", # Use PyTorch
     # Reduce number of workers for rendering
     "num_workers": 8,  # Use only one worker for rendering
-    "num_envs_per_env_runner": 2,
+    "num_envs_per_env_runner": 1,
     "use_gae": True,
     # Reduce learning rate and use a more conservative schedule
-    "lr": 1e-3,
+    "lr": 3e-4,
     "lr_schedule": [
-        [0, 1e-3],
-        [1_000_000, 5e-4],
-        [3_000_000, 1e-4],
+        [0, 3e-4],
+        [1_000_000, 1e-4],
+        [3_000_000, 5e-5],
     ],
     
     # More conservative PPO settings
@@ -121,9 +123,9 @@ config = {
     
     # Smaller batch sizes for more stable updates
     "rollout_fragment_length": 512,
-    "train_batch_size": 8192,      
-    "sgd_minibatch_size": 64,      
-    "num_sgd_iter": 20,             
+    "train_batch_size": 4096,      # Reduced from 8192
+    "sgd_minibatch_size": 128,     # Increased from 64
+    "num_sgd_iter": 10,            # Reduced from 20
     
     "vf_clip_param": 5.0,
     # Add gradient clipping
@@ -163,7 +165,7 @@ tuner = tune.Tuner(
     run_config=train.RunConfig(
         storage_path=str(storage_path),
         name="humanoid_training",
-        stop={"training_iteration": 100_000},
+        stop={"training_iteration": 7_000}, # expected to approximately reach 50 million steps which should be suffiecent for learning based on literature review
         checkpoint_config=train.CheckpointConfig(
             checkpoint_frequency=200,
             checkpoint_score_attribute="env_runners/episode_reward_mean",
@@ -243,3 +245,6 @@ tuner.fit()
 #                 env.renderer = None
 
 # from ray.rllib.algorithms.ppo import PPO
+
+# Check for MPS availability
+# mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
