@@ -84,7 +84,7 @@ config = {
         "render_mode": "rgb_array",
         "framerate": 60,
         "duration": 30.0,
-        "render_interval": 100,
+        "render_interval": 50,
         "reward_config": {
             "type": "walking",
             # params below is not explcitly used but it is a good way to pass parameters into the reward functions
@@ -99,31 +99,31 @@ config = {
     # "framework": "torch", # Use PyTorch
     # Reduce number of workers for rendering
     "num_workers": 8,  # Use only one worker for rendering
-    "num_envs_per_worker": 1,
+    "num_envs_per_env_runner": 2,
     "use_gae": True,
     # Reduce learning rate and use a more conservative schedule
-    "lr": 5e-4,
+    "lr": 1e-3,
     "lr_schedule": [
-        [0, 5e-4],
-        [100_000, 2e-4],
+        [0, 1e-3],
+        [500_000, 5e-4],
         [1_000_000, 1e-4],
     ],
     
     # More conservative PPO settings
-    "clip_param": 0.3,             
-    "entropy_coeff": 0.2,
+    "clip_param": 0.2,             
+    "entropy_coeff": 0.05,
     "entropy_coeff_schedule": [
-        [0, 0.1],           # Start at 0.1
-        [1000000, 0.05],    # Decrease to 0.05 after 1M steps
-        [2000000, 0.01],    # Decrease to 0.01 after 2M steps
+        [0, 0.05],          
+        [5000000, 0.02],   
     ],        
     "gamma": 0.995,          
     "lambda_": 0.95,           
     
     # Smaller batch sizes for more stable updates
-    "train_batch_size": 8000,      
-    "sgd_minibatch_size": 128,      
-    "num_sgd_iter": 10,             
+    "rollout_fragment_length": 512,
+    "train_batch_size": 8192,      
+    "sgd_minibatch_size": 64,      
+    "num_sgd_iter": 20,             
     
     "vf_clip_param": 5.0,
     # Add gradient clipping
@@ -132,12 +132,13 @@ config = {
     # More conservative exploration
     "exploration_config": {
         "type": "StochasticSampling",
-        "random_timesteps": 100_000,    
+        "random_timesteps": 500_000,    
     },
     
     # Normalize observations
     "normalize_actions": True,
     "normalize_observations": True,
+    "observation_filter": "MeanStdFilter",
     "normalize_advantages": True,
     
     # Rest of your existing config...
@@ -146,7 +147,7 @@ config = {
    # Add model configuration
     "model": {
         "fcnet_hiddens": [256, 256, 256],
-        # "fcnet_activation": "tanh",
+        "fcnet_activation": "relu",
         "vf_share_layers": False,    # Separate value network
         "free_log_std": True,
     },
@@ -162,9 +163,9 @@ tuner = tune.Tuner(
     run_config=train.RunConfig(
         storage_path=str(storage_path),
         name="humanoid_training",
-        stop={"training_iteration": 10000},
+        stop={"training_iteration": 100_000},
         checkpoint_config=train.CheckpointConfig(
-            checkpoint_frequency=50,
+            checkpoint_frequency=200,
             checkpoint_score_attribute="env_runners/episode_reward_mean",
             num_to_keep=10,
             checkpoint_at_end=True

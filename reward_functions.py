@@ -209,41 +209,53 @@ def comprehensive_walking_reward(env_data, params=None):
     euler = quaternion_to_euler(orientation)
     roll, pitch, _ = euler
     
-    # 1. Early termination with larger penalty
-    if height < 0.8:  # Increased height threshold
-        return -20.0  # Increased penalty for falling
+    # 1. Early termination with smaller penalty
+    if height < 0.8 and forward_vel < 0.2:
+        return -1.0
     
     reward = 0.0
     
     # 2. Stability First (Primary Reward)
-    # Orientation stability (0.0 to 1.0)
-    orientation_score = np.exp(-2.0 * (np.square(roll) + np.square(pitch)))
-    reward += 1.0 * orientation_score
+    orientation_score = 1 / (1 + 5 * (np.square(roll) + np.square(pitch)))
+    reward += 0.2 * orientation_score
     
-    # Height maintenance (0.0 to 1.0)
+    # Height maintenance
     target_height = 1.3
-    height_score = np.exp(-3.0 * abs(height - target_height))
-    reward += 1.0 * height_score
+    height_score = np.exp(-3.0 * abs(height - target_height)) / np.exp(-3.0)
+    reward += 0.2 * height_score
     
     # 3. Forward Progress (Only if stable)
-    # Scale forward reward by stability
     stability_factor = min(orientation_score, height_score)
-    forward_reward = np.clip(forward_vel, 0, 1.0)
-    reward += 0.5 * forward_reward * stability_factor
+    forward_reward = 0.2 * np.tanh(forward_vel)
+    reward += forward_reward * stability_factor
     
     # 4. Energy Efficiency
-    ctrl_cost = np.sum(np.square(ctrl)) * 0.01
+    ctrl_cost = np.sum(np.square(ctrl)) * 0.001
     reward -= ctrl_cost
     
     # 5. Natural Motion Penalties
-    # Lateral movement penalty
-    lateral_penalty = np.square(lateral_vel) * 0.1
+    lateral_penalty = 0.01 * max(0, abs(lateral_vel) - 0.1)
     reward -= lateral_penalty
     
-    # Joint velocity penalties (prevent jerky motion)
     joint_velocities = env_data.qvel[6:]
-    joint_penalty = np.sum(np.square(joint_velocities)) * 0.001
+    joint_penalty = np.sum(np.square(joint_velocities[joint_velocities > 1.0])) * 0.0001
     reward -= joint_penalty
+
+    actuator_usage_penalty = 0.001 * (np.sum(np.square(ctrl)) + np.sum(abs(ctrl)))
+    reward -= actuator_usage_penalty
+
+    # Fall penalty
+    if height < 0.8:
+        reward -= 0.5
+    
+    # Reward Clipping
+    reward = np.clip(reward, -1.0, 1.0)
+    
+    # Dynamic Scaling (example: scale rewards based on training progress)
+    # if params and 'training_progress' in params:
+    #     progress = params['training_progress']
+    #     scaling_factor = 0.5 + 0.5 * progress  # Scale from 0.5 to 1.0
+    #     reward *= scaling_factor
     
     return float(reward)
 
