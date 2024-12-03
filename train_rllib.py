@@ -21,7 +21,7 @@ class EpisodeCounter:
         return self.count
 
 # First, create a global counter actor before training starts
-episode_counter = None
+# episode_counter = None
 
 class RenderingCallbacks(DefaultCallbacks):
     def __init__(self):
@@ -87,7 +87,7 @@ config = {
         "duration": 30.0,
         "render_interval": 250,
         "reward_config": {
-            "type": "walking",
+            "type": "mujoco_humanoid",
             # params below is not explcitly used but it is a good way to pass parameters into the reward functions
             # "params": {
             #     # Any parameters specific to the reward function

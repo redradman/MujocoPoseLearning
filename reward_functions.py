@@ -196,68 +196,160 @@ def quaternion_to_euler(quat):
     
     return np.array([roll, pitch, yaw])
 
-def comprehensive_walking_reward(env_data, params=None):
-    """Advanced reward function combining multiple components for natural walking."""
+# def comprehensive_walking_reward(env_data, params=None):
+#     """Advanced reward function combining multiple components for natural walking."""
+#     # Extract state information
+#     height = env_data.qpos[2]  # z-position (height)
+#     orientation = env_data.qpos[3:7]  # quaternion
+#     forward_vel = env_data.qvel[0]  # forward velocity
+#     lateral_vel = env_data.qvel[1]  # side velocity
+#     ctrl = env_data.ctrl  # control actions
+    
+#     # Get orientation in euler angles
+#     euler = quaternion_to_euler(orientation)
+#     roll, pitch, _ = euler
+    
+#     # 1. Early termination with smaller penalty
+#     if height < 0.8 and forward_vel < 0.2:
+#         return -1.0
+    
+#     reward = 0.0
+    
+#     # 2. Stability First (Primary Reward)
+#     orientation_score = 1 / (1 + 5 * (np.square(roll) + np.square(pitch)))
+#     reward += 0.2 * orientation_score
+    
+#     # Height maintenance
+#     target_height = 1.3
+#     height_score = np.exp(-3.0 * abs(height - target_height)) / np.exp(-3.0)
+#     reward += 0.2 * height_score
+    
+#     # 3. Forward Progress (Only if stable)
+#     stability_factor = min(orientation_score, height_score)
+#     forward_reward = 0.2 * np.tanh(forward_vel)
+#     reward += forward_reward * stability_factor
+    
+#     # 4. Energy Efficiency
+#     ctrl_cost = np.sum(np.square(ctrl)) * 0.001
+#     reward -= ctrl_cost
+    
+#     # 5. Natural Motion Penalties
+#     lateral_penalty = 0.01 * max(0, abs(lateral_vel) - 0.1)
+#     reward -= lateral_penalty
+    
+#     joint_velocities = env_data.qvel[6:]
+#     joint_penalty = np.sum(np.square(joint_velocities[joint_velocities > 1.0])) * 0.0001
+#     reward -= joint_penalty
+
+#     actuator_usage_penalty = 0.001 * (np.sum(np.square(ctrl)) + np.sum(abs(ctrl)))
+#     reward -= actuator_usage_penalty
+
+#     # Fall penalty
+#     if height < 0.8:
+#         reward -= 0.5
+    
+#     # Reward Clipping
+#     reward = np.clip(reward, -1.0, 1.0)
+    
+#     # Dynamic Scaling (example: scale rewards based on training progress)
+#     # if params and 'training_progress' in params:
+#     #     progress = params['training_progress']
+#     #     scaling_factor = 0.5 + 0.5 * progress  # Scale from 0.5 to 1.0
+#     #     reward *= scaling_factor
+    
+#     return float(reward)
+
+def mujoco_style_walking_reward(env_data, params=None):
+    """MuJoCo-style walking reward, normalized to [0, 1].
+    Combines forward velocity reward with a 'healthy' state bonus,
+    and includes penalties for falling, energy usage, and joint angles."""
+    
     # Extract state information
-    height = env_data.qpos[2]  # z-position (height)
+    height = env_data.qpos[2]         # z-position
     orientation = env_data.qpos[3:7]  # quaternion
-    forward_vel = env_data.qvel[0]  # forward velocity
-    lateral_vel = env_data.qvel[1]  # side velocity
-    ctrl = env_data.ctrl  # control actions
+    forward_vel = env_data.qvel[0]    # x-velocity
+    ctrl = env_data.ctrl              # control signals
     
-    # Get orientation in euler angles
+    # Convert quaternion to euler angles
     euler = quaternion_to_euler(orientation)
-    roll, pitch, _ = euler
+    roll, pitch = euler[0], euler[1]
     
-    # 1. Early termination with smaller penalty
-    if height < 0.8 and forward_vel < 0.2:
-        return -1.0
+    # Early termination
+    if height < 0.8:  # fallen
+        return 0.0
+        
+    # 1. Alive bonus (0.1)
+    alive_bonus = 0.1
     
-    reward = 0.0
+    # 2. Forward velocity reward (0 to 0.4)
+    # Reward is maximum at target_velocity
+    target_velocity = 1.5
+    velocity_reward = 0.4 * np.clip(forward_vel / target_velocity, 0.0, 1.0)
     
-    # 2. Stability First (Primary Reward)
-    orientation_score = 1 / (1 + 5 * (np.square(roll) + np.square(pitch)))
-    reward += 0.2 * orientation_score
-    
-    # Height maintenance
+    # 3. Posture reward (0 to 0.3)
+    # Penalize non-neutral orientation and height deviation
     target_height = 1.3
-    height_score = np.exp(-3.0 * abs(height - target_height)) / np.exp(-3.0)
-    reward += 0.2 * height_score
+    orientation_cost = (roll**2 + pitch**2)
+    height_deviation = abs(height - target_height)
+    posture_reward = 0.3 * np.exp(-3.0 * (orientation_cost + height_deviation))
     
-    # 3. Forward Progress (Only if stable)
-    stability_factor = min(orientation_score, height_score)
-    forward_reward = 0.2 * np.tanh(forward_vel)
-    reward += forward_reward * stability_factor
+    # 4. Energy penalty (0 to 0.2 penalty)
+    # Penalize excessive action/control values
+    energy_penalty = 0.2 * np.clip(np.sum(np.square(ctrl)) / len(ctrl), 0.0, 1.0)
     
-    # 4. Energy Efficiency
-    ctrl_cost = np.sum(np.square(ctrl)) * 0.001
-    reward -= ctrl_cost
+    # Combine all components
+    reward = alive_bonus + velocity_reward + posture_reward - energy_penalty
     
-    # 5. Natural Motion Penalties
-    lateral_penalty = 0.01 * max(0, abs(lateral_vel) - 0.1)
-    reward -= lateral_penalty
-    
-    joint_velocities = env_data.qvel[6:]
-    joint_penalty = np.sum(np.square(joint_velocities[joint_velocities > 1.0])) * 0.0001
-    reward -= joint_penalty
+    # Normalize to [0, 1]
+    return float(np.clip(reward, 0.0, 1.0))
 
-    actuator_usage_penalty = 0.001 * (np.sum(np.square(ctrl)) + np.sum(abs(ctrl)))
-    reward -= actuator_usage_penalty
-
-    # Fall penalty
-    if height < 0.8:
-        reward -= 0.5
+def mujoco_humanoid_reward(env_data, params=None):
+    """
+    Canonical MuJoCo humanoid reward function, normalized to [0, 1].
+    Reference: https://github.com/openai/gym/blob/master/gym/envs/mujoco/humanoid_v4.py
+    """
     
-    # Reward Clipping
-    reward = np.clip(reward, -1.0, 1.0)
+    # Extract state information
+    qpos = env_data.qpos
+    qvel = env_data.qvel
+    ctrl = env_data.ctrl
     
-    # Dynamic Scaling (example: scale rewards based on training progress)
-    # if params and 'training_progress' in params:
-    #     progress = params['training_progress']
-    #     scaling_factor = 0.5 + 0.5 * progress  # Scale from 0.5 to 1.0
-    #     reward *= scaling_factor
+    # Constants from MuJoCo
+    ALIVE_BONUS = 5.0
+    FORWARD_WEIGHT = 1.25
+    CTRL_COST_WEIGHT = 0.1
+    CONTACT_COST_WEIGHT = 5e-7
+    CONTACT_COST_RANGE = [0, 10]
     
-    return float(reward)
+    # 1. Alive bonus
+    alive_bonus = ALIVE_BONUS
+    
+    # 2. Forward velocity reward (x-axis)
+    forward_reward = FORWARD_WEIGHT * qvel[0]
+    
+    # 3. Control cost (squared L2 norm of control signals)
+    ctrl_cost = CTRL_COST_WEIGHT * np.sum(np.square(ctrl))
+    
+    # 4. Contact cost (based on contact forces)
+    contact_cost = 0
+    # if hasattr(env_data, 'cfrc_ext'):
+    #     contact_cost = CONTACT_COST_WEIGHT * np.sum(
+    #         np.square(env_data.cfrc_ext))
+    # contact_cost = np.clip(contact_cost, CONTACT_COST_RANGE[0], 
+    #                       CONTACT_COST_RANGE[1])
+    
+    # Combine rewards and costs
+    reward = alive_bonus + forward_reward - ctrl_cost - contact_cost
+    
+    # Normalize to [0, 1] based on typical ranges
+    # Note: These scaling factors are based on empirical observations
+    MAX_EXPECTED_REWARD = 20.0  # Typical maximum reward value
+    MIN_EXPECTED_REWARD = -5.0  # Typical minimum reward value
+    
+    normalized_reward = (reward - MIN_EXPECTED_REWARD) / \
+                       (MAX_EXPECTED_REWARD - MIN_EXPECTED_REWARD)
+    
+    return float(np.clip(normalized_reward, 0.0, 1.0))
 
 # Dictionary mapping reward names to functions
 REWARD_FUNCTIONS = {
@@ -266,5 +358,7 @@ REWARD_FUNCTIONS = {
     'stability': stability_focused,
     'energy_efficient': energy_efficient,
     'stand_still': just_keep_standing_reward,
-    'walking': comprehensive_walking_reward
+    # 'walking': comprehensive_walking_reward,
+    'simple_walking': mujoco_style_walking_reward,
+    'mujoco_humanoid': mujoco_humanoid_reward
 } 

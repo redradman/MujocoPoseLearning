@@ -123,9 +123,9 @@ class HumanoidEnv:
             truncation_info['reason'] = 'too_high'
         
         # Orientation check (falling over)
-        if abs(roll) > 1.0 or abs(pitch) > 1.0:
-            truncated = True
-            truncation_info['reason'] = 'bad_orientation'
+        # if abs(roll) > 1.0 or abs(pitch) > 1.0:
+        #     truncated = True
+        #     truncation_info['reason'] = 'bad_orientation'
 
         # Joint angle limits
         # joint_angles = self.data.qpos[7:]
