@@ -6,6 +6,7 @@ from pathlib import Path
 from reward_functions import REWARD_FUNCTIONS
 
 CLIP_OBSERVATION_VALUE = np.inf # decided on no clipping for now (might have to revise if experiencing exploding gradient problem)
+ACTION_CLIP_VALUE = 0.4
 
 class HumanoidEnv:
     def __init__(self, env_config):
@@ -54,8 +55,8 @@ class HumanoidEnv:
 
         num_actions = self.model.nu
         self.action_space = spaces.Box(
-            low=-0.4,
-            high=0.4,
+            low=-ACTION_CLIP_VALUE,
+            high=ACTION_CLIP_VALUE,
             shape=(num_actions,),
             dtype=np.float32
         )
