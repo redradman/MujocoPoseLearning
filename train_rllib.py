@@ -112,17 +112,17 @@ config = {
     
     # More conservative PPO settings
     "clip_param": 0.2,             
-    "entropy_coeff": 0.05,
+    "entropy_coeff": 0.1,
     "entropy_coeff_schedule": [
-        [0, 0.05],          
-        [5000000, 0.02],   
+        [0, 0.1],          
+        [5_000_000, 0.05],   
     ],        
     "gamma": 0.995,          
     "lambda_": 0.95,           
     
     # Smaller batch sizes for more stable updates
     "rollout_fragment_length": 512,
-    "train_batch_size": 4096,      # Reduced from 8192
+    "train_batch_size": 8192,      # Reduced from 8192
     "sgd_minibatch_size": 128,     # Increased from 64
     "num_sgd_iter": 10,            # Reduced from 20
     
@@ -132,8 +132,10 @@ config = {
     
     # More conservative exploration
     "exploration_config": {
-        "type": "StochasticSampling",
-        "random_timesteps": 500_000,    
+        "type": "GaussianNoise",
+        "random_timesteps": 500_000,
+        "final_scale": 0.02,  # Don't completely stop exploring
+        "scale_timesteps": 1_000_000,  # Gradually reduce exploration
     },
     
     # Normalize observations
@@ -147,8 +149,8 @@ config = {
     
    # Add model configuration
     "model": {
-        "fcnet_hiddens": [256, 256, 256],
-        "fcnet_activation": "relu",
+        "fcnet_hiddens": [128, 128],
+        # "fcnet_activation": "relu",
         "vf_share_layers": False,    # Separate value network
         "free_log_std": True,
     },

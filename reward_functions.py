@@ -313,19 +313,22 @@ def mujoco_humanoid_reward(env_data, params=None):
     qpos = env_data.qpos
     qvel = env_data.qvel
     ctrl = env_data.ctrl
+    height = qpos[2]
+    forward_vel = qvel[0]
     
-    # Constants from MuJoCo
+    # Constants
     ALIVE_BONUS = 5.0
     FORWARD_WEIGHT = 1.25
     CTRL_COST_WEIGHT = 0.1
     CONTACT_COST_WEIGHT = 5e-7
     CONTACT_COST_RANGE = [0, 10]
-    
     # 1. Alive bonus
     alive_bonus = ALIVE_BONUS
     
     # 2. Forward velocity reward (x-axis)
     forward_reward = FORWARD_WEIGHT * qvel[0]
+    if forward_reward < 0.1:  # If almost stationary
+        alive_bonus *= 0.5  # Reduce alive bonus 
     
     # 3. Control cost (squared L2 norm of control signals)
     ctrl_cost = CTRL_COST_WEIGHT * np.sum(np.square(ctrl))

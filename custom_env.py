@@ -6,7 +6,7 @@ from pathlib import Path
 from reward_functions import REWARD_FUNCTIONS
 
 CLIP_OBSERVATION_VALUE = np.inf # decided on no clipping for now (might have to revise if experiencing exploding gradient problem)
-ACTION_CLIP_VALUE = 0.4
+ACTION_CLIP_VALUE = 0.4 # change from 0.4 to 0.6 to allow for more movement (might have to revise again)
 
 class HumanoidEnv:
     def __init__(self, env_config):
@@ -124,15 +124,15 @@ class HumanoidEnv:
             truncation_info['reason'] = 'too_high'
         
         # Orientation check (falling over)
-        # if abs(roll) > 1.0 or abs(pitch) > 1.0:
-        #     truncated = True
-        #     truncation_info['reason'] = 'bad_orientation'
+        if abs(roll) > 1.0 or abs(pitch) > 1.0:
+            truncated = True
+            truncation_info['reason'] = 'bad_orientation'
 
         # Joint angle limits
-        # joint_angles = self.data.qpos[7:]
-        # if np.any(np.abs(joint_angles) > 2.0):  # ~115 degrees
-        #     truncated = True
-        #     truncation_info['reason'] = 'joint_limit'
+        joint_angles = self.data.qpos[7:]
+        if np.any(np.abs(joint_angles) > 2.0):  # ~115 degrees
+            truncated = True
+            truncation_info['reason'] = 'joint_limit'
         
         # Energy consumption check
         # if np.sum(np.square(self.data.ctrl)) > 100.0:
