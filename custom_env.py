@@ -5,7 +5,7 @@ from gymnasium import spaces
 from pathlib import Path
 from reward_functions import REWARD_FUNCTIONS
 
-CLIP_OBSERVATION_VALUE = 5
+CLIP_OBSERVATION_VALUE = np.inf # decided on no clipping for now (might have to revise if experiencing exploding gradient problem)
 
 class HumanoidEnv:
     def __init__(self, env_config):
