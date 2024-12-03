@@ -1,7 +1,8 @@
 *.DS_Store
 ray_results/
 recordings/
-
+ipynb_checkpoints/
+*.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
