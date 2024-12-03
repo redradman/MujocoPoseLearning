@@ -305,7 +305,7 @@ def mujoco_style_walking_reward(env_data, params=None):
 
 def mujoco_humanoid_reward(env_data, params=None):
     """
-    Canonical MuJoCo humanoid reward function, normalized to [0, 1].
+    Exact MuJoCo humanoid reward function.
     Reference: https://github.com/openai/gym/blob/master/gym/envs/mujoco/humanoid_v4.py
     """
     
@@ -332,24 +332,16 @@ def mujoco_humanoid_reward(env_data, params=None):
     
     # 4. Contact cost (based on contact forces)
     contact_cost = 0
-    # if hasattr(env_data, 'cfrc_ext'):
-    #     contact_cost = CONTACT_COST_WEIGHT * np.sum(
-    #         np.square(env_data.cfrc_ext))
-    # contact_cost = np.clip(contact_cost, CONTACT_COST_RANGE[0], 
-    #                       CONTACT_COST_RANGE[1])
+    if hasattr(env_data, 'cfrc_ext'):
+        contact_cost = CONTACT_COST_WEIGHT * np.sum(
+            np.square(env_data.cfrc_ext))
+    contact_cost = np.clip(contact_cost, CONTACT_COST_RANGE[0], 
+                          CONTACT_COST_RANGE[1])
     
-    # Combine rewards and costs
+    # Combine rewards and costs exactly as MuJoCo does
     reward = alive_bonus + forward_reward - ctrl_cost - contact_cost
     
-    # Normalize to [0, 1] based on typical ranges
-    # Note: These scaling factors are based on empirical observations
-    MAX_EXPECTED_REWARD = 20.0  # Typical maximum reward value
-    MIN_EXPECTED_REWARD = -5.0  # Typical minimum reward value
-    
-    normalized_reward = (reward - MIN_EXPECTED_REWARD) / \
-                       (MAX_EXPECTED_REWARD - MIN_EXPECTED_REWARD)
-    
-    return float(np.clip(normalized_reward, 0.0, 1.0))
+    return float(reward)
 
 # Dictionary mapping reward names to functions
 REWARD_FUNCTIONS = {
