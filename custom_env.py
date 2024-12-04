@@ -1,15 +1,21 @@
 import mujoco
 import numpy as np
 import mediapy as media
-from gymnasium import spaces
+from gymnasium import spaces, Env
 from pathlib import Path
 from reward_functions import REWARD_FUNCTIONS
 
 CLIP_OBSERVATION_VALUE = np.inf # decided on no clipping for now (might have to revise if experiencing exploding gradient problem)
-ACTION_CLIP_VALUE = 0.4 # change from 0.4 to 0.6 to allow for more movement (might have to revise again)
+ACTION_CLIP_VALUE = 1 # allow the full range of motion
 
-class HumanoidEnv:
+class HumanoidEnv(Env):
+    metadata = {
+        "render_modes": ["rgb_array"],
+        "render_fps": 60,
+    }
+    
     def __init__(self, env_config):
+        super().__init__()
         # Handle both dict and string inputs
         if isinstance(env_config, dict):
             self.model_path = env_config.get('model_path')
@@ -129,10 +135,10 @@ class HumanoidEnv:
             truncation_info['reason'] = 'bad_orientation'
 
         # Joint angle limits
-        joint_angles = self.data.qpos[7:]
-        if np.any(np.abs(joint_angles) > 2.0):  # ~115 degrees
-            truncated = True
-            truncation_info['reason'] = 'joint_limit'
+        # joint_angles = self.data.qpos[7:]
+        # if np.any(np.abs(joint_angles) > 2.0):  # ~115 degrees
+        #     truncated = True
+        #     truncation_info['reason'] = 'joint_limit'
         
         # Energy consumption check
         # if np.sum(np.square(self.data.ctrl)) > 100.0:
@@ -232,12 +238,15 @@ class HumanoidEnv:
         if video_path.exists():
             video_path.unlink()
         
-        media.write_video(
-            str(video_path),
-            self.frames,
-            fps=self.framerate,
-            codec='h264',
-        )
+        if len(self.frames) > 0:
+            media.write_video(
+                str(video_path),
+                self.frames,
+                fps=self.framerate,
+                codec='h264',
+            )
+        else:
+            print("No frames to save!")  # Debug print
         
         # Clear frames after saving
         self.frames = []

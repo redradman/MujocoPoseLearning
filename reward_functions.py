@@ -310,11 +310,11 @@ def mujoco_humanoid_reward(env_data, params=None):
     """
     
     # Extract state information
-    qpos = env_data.qpos
+    # qpos = env_data.qpos
     qvel = env_data.qvel
     ctrl = env_data.ctrl
-    height = qpos[2]
-    forward_vel = qvel[0]
+    # height = qpos[2]
+    # forward_vel = qvel[0]
     
     # Constants
     ALIVE_BONUS = 5.0

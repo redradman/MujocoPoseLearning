@@ -3,6 +3,7 @@ ray_results/
 recordings/
 ipynb_checkpoints/
 *.ipynb
+sb3_results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
