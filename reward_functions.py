@@ -277,31 +277,43 @@ def mujoco_style_walking_reward(env_data, params=None):
     # Early termination
     if height < 0.8:  # fallen
         return 0.0
-        
+    joint_angles = env_data.qpos[7:]
+    if np.any(np.abs(joint_angles) > 2.0):
+        return 0.0
+
+    if abs(roll) > 1.0 or abs(pitch) > 1.0:
+        return 0.0
+    
     # 1. Alive bonus (0.1)
-    alive_bonus = 0.1
+    alive_bonus = 1
     
     # 2. Forward velocity reward (0 to 0.4)
     # Reward is maximum at target_velocity
     target_velocity = 1.5
-    velocity_reward = 0.4 * np.clip(forward_vel / target_velocity, 0.0, 1.0)
+    velocity_reward = np.clip(forward_vel / target_velocity, 0.0, 1.0)
     
     # 3. Posture reward (0 to 0.3)
     # Penalize non-neutral orientation and height deviation
     target_height = 1.3
     orientation_cost = (roll**2 + pitch**2)
     height_deviation = abs(height - target_height)
-    posture_reward = 0.3 * np.exp(-3.0 * (orientation_cost + height_deviation))
+    posture_reward = np.exp(-3.0 * (orientation_cost + height_deviation))
     
     # 4. Energy penalty (0 to 0.2 penalty)
     # Penalize excessive action/control values
-    energy_penalty = 0.2 * np.clip(np.sum(np.square(ctrl)) / len(ctrl), 0.0, 1.0)
+    energy_penalty = np.clip(np.sum(np.square(ctrl)) / len(ctrl), 0.0, 1.0)
     
+
+    # punish by height
+    punish_less_height = 1 - height
+
+
+
     # Combine all components
-    reward = alive_bonus + velocity_reward + posture_reward - energy_penalty
+    reward = alive_bonus + velocity_reward + posture_reward - energy_penalty - punish_less_height
     
     # Normalize to [0, 1]
-    return float(np.clip(reward, 0.0, 1.0))
+    return float(reward)
 
 def mujoco_humanoid_reward(env_data, params=None):
     """

@@ -107,8 +107,8 @@ def main():
     model = PPO(
         "MlpPolicy",
         env,
-        n_steps=512,
-        batch_size=128,
+        n_steps=1024,
+        batch_size=4096,
         n_epochs=10,
         gamma=0.995,
         gae_lambda=0.95,
