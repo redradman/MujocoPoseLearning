@@ -4,16 +4,22 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList, Progr
 from custom_env import HumanoidEnv
 import torch
 from pathlib import Path
+from multiprocessing import Value
+import ctypes
+import numpy as np
 
-RENDER_INTERVAL = 100
+RENDER_INTERVAL = 200
 N_ENVS = 12
 
+# Global synchronized counter
+global_episode_count = Value(ctypes.c_int, 0)
+
 class VideoRecorderCallback(BaseCallback):
-    def __init__(self, render_interval: int, env_id: int = 0, verbose=1):
+    def __init__(self, render_interval: int, episode_counter: Value, env_id: int = 0, verbose=1):
         super().__init__(verbose)
         self.render_interval = render_interval
         self.env_id = env_id
-        self.episode_count = 0
+        self.episode_counter = episode_counter
         
     def _init_callback(self) -> None:
         # Create a single environment for rendering when callback is initialized
@@ -29,21 +35,34 @@ class VideoRecorderCallback(BaseCallback):
                 "type": "mujoco_humanoid",
             }
         })
+        
+        # Initialize episode tracking for each env
+        self.episode_counts = np.zeros(N_ENVS, dtype=np.int32)
 
     def _on_step(self) -> bool:
+        # Check for episode terminations
+        dones = self.locals.get('dones')  # Get done signals from all envs
+        if dones is not None:
+            for env_idx, done in enumerate(dones):
+                if done:
+                    with self.episode_counter.get_lock():
+                        self.episode_counter.value += 1
+                        current_episode = self.episode_counter.value
+                        
+                    # Only render on the specified interval
+                    if current_episode % self.render_interval == 0:
+                        # Get the current policy
+                        obs = self.render_env.reset()[0]
+                        done = False
+                        while not done:
+                            action, _ = self.model.predict(obs, deterministic=True)
+                            obs, _, terminated, truncated, _ = self.render_env.step(action)
+                            done = terminated or truncated
+                        self.render_env.save_video(current_episode)
         return True
 
     def _on_rollout_end(self) -> None:
-        self.episode_count += 1
-        if self.episode_count % self.render_interval == 0:
-            # Get the current policy
-            obs = self.render_env.reset()[0]
-            done = False
-            while not done:
-                action, _ = self.model.predict(obs, deterministic=True)
-                obs, _, terminated, truncated, _ = self.render_env.step(action)
-                done = terminated or truncated
-            self.render_env.save_video(self.episode_count)
+        pass  # Episode counting is now handled in _on_step
 
 def make_env(env_config, rank):
     """
@@ -108,7 +127,7 @@ def main():
     # Setup callbacks
     callbacks = CallbackList([
         ProgressBarCallback(),  # Progress bar
-        VideoRecorderCallback(render_interval=RENDER_INTERVAL)  # Video recording
+        VideoRecorderCallback(render_interval=RENDER_INTERVAL, episode_counter=global_episode_count)  # Video recording
     ])
 
     # Train the model
