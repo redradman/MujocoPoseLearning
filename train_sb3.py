@@ -8,9 +8,9 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-RENDER_INTERVAL = 200
-N_ENVS = 12
-
+RENDER_INTERVAL = 1000
+N_ENVS = 10
+REWARD_FUNCTION = "walk"
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
 
@@ -32,7 +32,7 @@ class VideoRecorderCallback(BaseCallback):
             "framerate": 60,
             "duration": 30.0,
             "reward_config": {
-                "type": "mujoco_humanoid",
+                "type": REWARD_FUNCTION,
             }
         })
         
@@ -87,7 +87,7 @@ def main():
         "framerate": 60,
         "duration": 30.0,
         "reward_config": {
-            "type": "mujoco_humanoid",
+            "type": REWARD_FUNCTION,
         }
     }
 
@@ -107,16 +107,18 @@ def main():
     model = PPO(
         "MlpPolicy",
         env,
-        n_steps=1024,
-        batch_size=4096,
-        n_epochs=10,
-        gamma=0.995,
+        learning_rate=1e-4,
+        n_steps=2048,
+        batch_size=2048,
+        # target_kl=0.02,
+        # n_epochs=5,
+        gamma=0.99,
         gae_lambda=0.95,
         clip_range=0.2,
-        clip_range_vf=5.0,
-        ent_coef=0.1,
-        vf_coef=0.5,
-        max_grad_norm=0.6,
+        # clip_range_vf=1,
+        ent_coef=0.001,
+        # vf_coef=0.5,
+        max_grad_norm=0.5,
         use_sde=True,
         sde_sample_freq=4,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
@@ -131,7 +133,7 @@ def main():
     ])
 
     # Train the model
-    TOTAL_TIMESTEPS = 1_000_000
+    TOTAL_TIMESTEPS = 10_000_000
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,
         callback=callbacks

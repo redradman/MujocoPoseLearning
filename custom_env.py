@@ -50,12 +50,26 @@ class HumanoidEnv(Env):
         if self.render_mode == "rgb_array":
             print("Creating renderer during init")
             self.renderer = mujoco.Renderer(self.model)
+
+
+        obs_size = self.data.qpos.size + self.data.qvel.size
+        obs_size += self.data.cinert[1:].size 
+        obs_size += self.data.cvel[1:].size 
+        obs_size += (self.data.qvel.size - 6)
+        obs_size += self.data.cfrc_ext[1:].size
                 
-        num_observations = self.model.nq + self.model.nv
+        # num_observations = (
+        #     self.model.nq +      # Joint positions
+        #     self.model.nv +      # Joint velocities
+        #     3 +                  # COM position (x, y, z)
+        #     3 +                  # COM velocity (x, y, z)
+        #     self.model.nbody * 6 # Contact forces (6D per body)
+        # )
+        
         self.observation_space = spaces.Box(
             low=-CLIP_OBSERVATION_VALUE,
             high=CLIP_OBSERVATION_VALUE,
-            shape=(num_observations,),
+            shape=(obs_size,),
             dtype=np.float64
         )
 
@@ -122,7 +136,7 @@ class HumanoidEnv(Env):
         truncation_info = {}
         
         # Height check (too low or too high)
-        if height < 0.7:
+        if height < 1.0:
             truncated = True
             truncation_info['reason'] = 'too_low'
         elif height > 2.0:  # Jumping/unstable behavior
@@ -176,10 +190,52 @@ class HumanoidEnv(Env):
         return state, reward, terminated, truncated, info
 
     def _get_state(self):
-        """Get the current state of the environment."""
-        qpos = self.data.qpos.copy()
-        qvel = self.data.qvel.copy()
-        state = np.concatenate([qpos, qvel])
+        """Get the current state of the environment.
+        
+        Returns a concatenated array of:
+        - Joint positions (qpos)
+        - Joint velocities (qvel)
+        - Center of mass position
+        - Center of mass velocity
+        - External contact forces
+        """
+        # # Basic state information
+        # qpos = self.data.qpos.copy()
+        # qvel = self.data.qvel.copy()
+        
+        # # Get center of mass position and velocity
+        # com_pos = self.data.subtree_com[0].copy()  # Position of the root body's center of mass
+        # com_vel = self.data.subtree_linvel[0].copy()  # Linear velocity of the root body's center of mass
+        
+        # # Get contact forces (external forces on the body)
+        # contact_force = self.data.cfrc_ext.copy().flatten()
+        
+        # # Concatenate all state components
+        # state = np.concatenate([
+        #     qpos,           # Joint positions
+        #     qvel,           # Joint velocities
+        #     com_pos,        # Center of mass position (3D)
+        #     com_vel,        # Center of mass velocity (3D)
+        #     contact_force,  # Contact forces (6D per body)
+        # ])
+
+        position = self.data.qpos.flatten()
+        velocity = self.data.qvel.flatten()
+        com_inertia = self.data.cinert[1:].flatten()
+        com_velocity = self.data.cvel[1:].flatten()
+        actuator_forces = self.data.qfrc_actuator[6:].flatten()
+        external_contact_forces = self.data.cfrc_ext[1:].flatten()
+        state = np.concatenate(
+            (
+                position,
+                velocity,
+                com_inertia,
+                com_velocity,
+                actuator_forces,
+                external_contact_forces,
+            )
+        )
+
         return np.clip(state, -CLIP_OBSERVATION_VALUE, CLIP_OBSERVATION_VALUE)
 
     def _compute_reward(self):
