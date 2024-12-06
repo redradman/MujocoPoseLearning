@@ -147,7 +147,7 @@ class HumanoidEnv(Env):
         
         # Apply actions
         self.data.ctrl[:] = action
-        print(self.data.ctrl)
+        # print(self.data.ctrl)
         
         # Debug info
         # if np.any(np.abs(self.data.ctrl) >= ACTION_CLIP_VALUE):
