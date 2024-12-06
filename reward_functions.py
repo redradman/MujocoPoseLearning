@@ -84,8 +84,11 @@ def humaniod_walking_reward(env_data, params=None):
     velocity_reward = x_vel * 0.5  # Scale appropriately
 
     # Control effort
-    control_cost_weight = 0.001
+    control_cost_weight = 0.01
     control_cost = control_cost_weight * np.sum(np.square(env_data.ctrl))
+
+    # Add smoothness penalty to discourage rapid changes
+    action_smoothness_penalty = 0.005 * np.sum(np.square(np.diff(env_data.ctrl)))
 
     # Orientation stability (e.g., keeping pitch and roll near zero)
     orientation = env_data.qpos[3:7]
@@ -94,8 +97,8 @@ def humaniod_walking_reward(env_data, params=None):
     orientation_penalty = - (np.abs(roll) + np.abs(pitch)) * 0.1  # Adjust weight as needed
 
     # Combine rewards
-    reward = height_reward + velocity_reward + orientation_penalty - control_cost
-
+    reward = height_reward + velocity_reward + orientation_penalty - control_cost - action_smoothness_penalty
+    # print(reward, height_reward, velocity_reward, orientation_penalty, control_cost)
     return reward
 
 def quaternion_to_euler(quat):

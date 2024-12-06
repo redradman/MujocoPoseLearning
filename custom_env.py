@@ -6,7 +6,7 @@ from pathlib import Path
 from reward_functions import REWARD_FUNCTIONS
 
 CLIP_OBSERVATION_VALUE = np.inf # decided on no clipping for now (might have to revise if experiencing exploding gradient problem)
-ACTION_CLIP_VALUE = 0.6 # allow the full range of motion
+ACTION_CLIP_VALUE = 0.5 # allow the full range of motion
 
 class HumanoidEnv(Env):
     metadata = {
@@ -138,8 +138,21 @@ class HumanoidEnv(Env):
         return state, info
 
     def step(self, action):
-        """Execute one environment step."""
+        # Clip actions to valid range
+        # action = np.array(action, dtype=np.float32) * ACTION_CLIP_VALUE
+        
+        # Scale actions if they're coming from a [-1, 1] policy
+        # if np.any(np.abs(action) > ACTION_CLIP_VALUE):
+        #     action = action * (ACTION_CLIP_VALUE / np.max(np.abs(action)))
+        
+        # Apply actions
         self.data.ctrl[:] = action
+        print(self.data.ctrl)
+        
+        # Debug info
+        # if np.any(np.abs(self.data.ctrl) >= ACTION_CLIP_VALUE):
+            # print(f"Warning: Actions hitting bounds: {np.sum(np.abs(self.data.ctrl) >= ACTION_CLIP_VALUE)} times")
+        
         mujoco.mj_step(self.model, self.data)
         
         state = self._get_state()

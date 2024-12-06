@@ -130,19 +130,20 @@ def main():
     # Define network architecture
     policy_kwargs = dict(
         net_arch=dict(
-            pi=[256, 256],
-            vf=[256, 256]
+            pi=[64, 64],
+            vf=[64, 64]
         ),
-        activation_fn=torch.nn.ReLU
+        activation_fn=torch.nn.Tanh
     )
 
     # Create the model
+    # values adopted from https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=5e-5,
-        # n_steps=2048,
-        # batch_size=2048,
+        learning_rate=3e-3,
+        n_steps=2048,
+        batch_size=64,
         target_kl=0.02,
         n_epochs=5,
         gamma=0.99,
