@@ -45,6 +45,8 @@ class HumanoidEnv(Env):
         self.frames = []
         self.renderer = None
         self.step_count = 0
+        self.init_qpos = self.data.qpos.copy()
+        self.init_qvel = self.data.qvel.copy()
         
         # Initialize renderer if we're going to render
         if self.render_mode == "rgb_array":
@@ -57,6 +59,7 @@ class HumanoidEnv(Env):
         obs_size += self.data.cvel[1:].size 
         obs_size += (self.data.qvel.size - 6)
         obs_size += self.data.cfrc_ext[1:].size
+        # obs_size += self.data.crtl.size
                 
         # num_observations = (
         #     self.model.nq +      # Joint positions
@@ -89,6 +92,22 @@ class HumanoidEnv(Env):
             np.random.seed(seed)
         
         mujoco.mj_resetData(self.model, self.data)
+
+        # Add small random perturbations to initial positions and velocities
+        pos = self.init_qpos.copy()
+        qvel = self.init_qvel.copy()
+        
+        # Position perturbations (smaller for stability)
+        pos_noise = np.random.uniform(low=-0.01, high=0.01, size=pos.shape)
+        pos += pos_noise
+        
+        # Velocity perturbations
+        vel_noise = np.random.uniform(low=-0.1, high=0.1, size=qvel.shape)
+        qvel += vel_noise
+        
+        # Apply the perturbed positions and velocities
+        self.data.qpos[:] = pos
+        self.data.qvel[:] = qvel
         
         # Clear frames and renderer on reset
         self.frames = []
@@ -136,10 +155,10 @@ class HumanoidEnv(Env):
         truncation_info = {}
         
         # Height check (too low or too high)
-        if height < 1.0:
+        if height < 0.5:
             truncated = True
             truncation_info['reason'] = 'too_low'
-        elif height > 2.0:  # Jumping/unstable behavior
+        elif height > 2:  # Jumping/unstable behavior
             truncated = True
             truncation_info['reason'] = 'too_high'
         
@@ -233,6 +252,7 @@ class HumanoidEnv(Env):
                 com_velocity,
                 actuator_forces,
                 external_contact_forces,
+                # crtl
             )
         )
 

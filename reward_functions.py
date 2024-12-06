@@ -67,69 +67,56 @@ def humaniod_walking_reward(env_data, params=None):
     """
     Reward function for humanoid walking that encourages:
     - Maintaining appropriate height
-    - Avoiding extreme joint angles
     - Moving forward
-    - Staying alive (not falling)
-    
+    - Minimizing control effort
+    - Maintaining stable orientation
+
     Returns:
-    - reward: float between 0 and 1
+    - reward: float
     """
-    # Extract relevant state information from env_data
-    # Position data
-    root_pos = env_data.qpos[0:3]      # (x, y, z) position of torso
-    root_orient = env_data.qpos[3:7]    # (w, x, y, z) quaternion orientation of torso
-    joint_angles = env_data.qpos[7:]    # Array of joint angles
+    # Desired height
+    desired_z = 1.0
+    z_pos = env_data.qpos[2]
+    height_reward = np.exp(-0.5 * (z_pos - desired_z)**2)
 
-    # Velocity data
-    root_lin_vel = env_data.qvel[0:3]   # (vx, vy, vz) linear velocity of torso
-    root_ang_vel = env_data.qvel[3:6]   # (wx, wy, wz) angular velocity of torso
-    joint_vel = env_data.qvel[6:]       # Array of joint velocities
+    # Forward velocity
+    x_vel = env_data.qvel[0]
+    velocity_reward = x_vel * 0.5  # Scale appropriately
 
-    # Unpack commonly used values
-    x_pos, y_pos, z_pos = root_pos      # Position components
-    vx, vy, vz = root_lin_vel          # Linear velocity components
-    wx, wy, wz = root_ang_vel          # Angular velocity components
-    
-    ctrl_cost_weight = 1.25
-    control_cost = ctrl_cost_weight * np.sum(np.square(env_data.ctrl))
+    # Control effort
+    control_cost_weight = 0.001
+    control_cost = control_cost_weight * np.sum(np.square(env_data.ctrl))
 
-    healthy_reward = 5.0
+    # Orientation stability (e.g., keeping pitch and roll near zero)
+    orientation = env_data.qpos[3:7]
+    euler = quaternion_to_euler(orientation)
+    roll, pitch = euler[0], euler[1]
+    orientation_penalty = - (np.abs(roll) + np.abs(pitch)) * 0.1  # Adjust weight as needed
 
+    # Combine rewards
+    reward = height_reward + velocity_reward + orientation_penalty - control_cost
 
-    # Use z_pos instead of directly accessing env_data
-    # height_reward = 5/np.exp(np.square(z_pos - 1))
-
-    velocity_reward = vx * 0.02
-
-    angular_velocity_reward = 5/np.exp(np.sum(np.square(root_ang_vel)))
-    
-    # Use vx instead of directly accessing env_data
-    
-    # reward = height_reward * angular_velocity_reward * velocity_reward
-    reward = velocity_reward + healthy_reward + angular_velocity_reward - control_cost
-    # print(reward, velocity_reward, healthy_reward, height_reward, angular_velocity_reward, control_cost)
     return reward
 
+def quaternion_to_euler(quat):
+    """Convert quaternion to euler angles."""
+    w, x, y, z = quat
 
-    ctrl_cost_weight = 0.05
-    control_cost = ctrl_cost_weight * np.sum(np.square(env_data.ctrl))
-    
-    # Height reward - peaks at z=1.0, falls off exponentially
-    target_height = 1.0
-    height_reward = 3.0 * np.exp(-5.0 * np.square(z_pos - target_height))
-    
-    # Forward velocity reward - scaled by height reward to encourage upright movement
-    velocity_scale = height_reward * 0.5  # Only get full velocity reward when upright
-    velocity_reward = velocity_scale * vx
-    
-    # Stability reward - rewards low angular velocities and vertical movement
-    stability_reward = 2.0 * np.exp(-2.0 * (np.sum(np.square(root_ang_vel)) + np.square(vy) + np.square(vz)))
-    
-    # Alive bonus (small constant reward)
-    alive_bonus = 0.5
-    
-    # Total reward
-    reward = velocity_reward + height_reward + stability_reward + alive_bonus - control_cost
+    # Roll (x-axis rotation)
+    sinr_cosp = 2.0 * (w * x + y * z)
+    cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
+    roll = np.arctan2(sinr_cosp, cosr_cosp)
+
+    # Pitch (y-axis rotation)
+    sinp = 2.0 * (w * y - z * x)
+    pitch = np.arcsin(np.clip(sinp, -1.0, 1.0))
+
+    # Yaw (z-axis rotation)
+    siny_cosp = 2.0 * (w * z + x * y)
+    cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
+    yaw = np.arctan2(siny_cosp, cosy_cosp)
+
+    return np.array([roll, pitch, yaw])
 
 # Dictionary mapping reward names to functions
 REWARD_FUNCTIONS = {

@@ -64,6 +64,39 @@ class VideoRecorderCallback(BaseCallback):
     def _on_rollout_end(self) -> None:
         pass  # Episode counting is now handled in _on_step
 
+class RewardStatsCallback(BaseCallback):
+    """
+    Callback for logging reward statistics to TensorBoard:
+    - mean reward
+    - min reward
+    - max reward
+    """
+    def __init__(self, verbose=0):
+        super().__init__(verbose)
+        self.rewards_buffer = []
+        
+    def _on_step(self) -> bool:
+        # Get the most recent reward
+        reward = self.locals['rewards'][0]  # [0] because we want scalar value
+        self.rewards_buffer.append(reward)
+        
+        # Log stats every 100 steps
+        if len(self.rewards_buffer) >= 100:
+            mean_reward = np.mean(self.rewards_buffer)
+            min_reward = np.min(self.rewards_buffer)
+            max_reward = np.max(self.rewards_buffer)
+            
+            # Log to tensorboard
+            self.logger.record("reward/mean", mean_reward)
+            self.logger.record("reward/min", min_reward)
+            self.logger.record("reward/max", max_reward)
+            
+            # Clear buffer
+            self.rewards_buffer = []
+            
+        return True
+
+
 def make_env(env_config, rank):
     """
     Utility function for multiprocessed env.
@@ -107,18 +140,16 @@ def main():
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=1e-4,
-        n_steps=2048,
-        batch_size=2048,
-        # target_kl=0.02,
-        # n_epochs=5,
+        learning_rate=5e-5,
+        # n_steps=2048,
+        # batch_size=2048,
+        target_kl=0.02,
+        n_epochs=5,
         gamma=0.99,
         gae_lambda=0.95,
         clip_range=0.2,
-        # clip_range_vf=1,
-        ent_coef=0.001,
-        # vf_coef=0.5,
-        max_grad_norm=0.5,
+        ent_coef=0.01,
+        max_grad_norm=0.4,
         use_sde=True,
         sde_sample_freq=4,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
@@ -129,6 +160,7 @@ def main():
     # Setup callbacks
     callbacks = CallbackList([
         ProgressBarCallback(),  # Progress bar
+        RewardStatsCallback(), # add reward stats to the tensorboard
         VideoRecorderCallback(render_interval=RENDER_INTERVAL, episode_counter=global_episode_count)  # Video recording
     ])
 
