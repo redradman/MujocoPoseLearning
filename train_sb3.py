@@ -9,7 +9,7 @@ import ctypes
 import numpy as np
 
 RENDER_INTERVAL = 1000
-N_ENVS = 10
+N_ENVS = 8
 REWARD_FUNCTION = "walk"
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
@@ -66,34 +66,44 @@ class VideoRecorderCallback(BaseCallback):
 
 class RewardStatsCallback(BaseCallback):
     """
-    Callback for logging reward statistics to TensorBoard:
-    - mean reward
-    - min reward
-    - max reward
+    Callback for logging episode reward statistics to TensorBoard:
+    - mean episode reward
+    - min episode reward
+    - max episode reward
     """
     def __init__(self, verbose=0):
         super().__init__(verbose)
-        self.rewards_buffer = []
-        
+        self.episode_rewards = []
+        self.current_episode_reward = 0
+
     def _on_step(self) -> bool:
-        # Get the most recent reward
-        reward = self.locals['rewards'][0]  # [0] because we want scalar value
-        self.rewards_buffer.append(reward)
+        # Get the most recent reward and add it to current episode total
+        rewards = self.locals['rewards']  # Get rewards for all envs
+        dones = self.locals['dones']      # Get done flags for all envs
         
-        # Log stats every 100 steps
-        if len(self.rewards_buffer) >= 100:
-            mean_reward = np.mean(self.rewards_buffer)
-            min_reward = np.min(self.rewards_buffer)
-            max_reward = np.max(self.rewards_buffer)
+        # Update current episode rewards
+        for reward, done in zip(rewards, dones):
+            self.current_episode_reward += reward
             
-            # Log to tensorboard
-            self.logger.record("reward/mean", mean_reward)
-            self.logger.record("reward/min", min_reward)
-            self.logger.record("reward/max", max_reward)
-            
-            # Clear buffer
-            self.rewards_buffer = []
-            
+            if done:
+                # Episode finished, store the total reward
+                self.episode_rewards.append(self.current_episode_reward)
+                self.current_episode_reward = 0
+                
+                # Log stats if we have enough episodes
+                if len(self.episode_rewards) >= 10:  # Log every 10 episodes
+                    mean_reward = np.mean(self.episode_rewards)
+                    min_reward = np.min(self.episode_rewards)
+                    max_reward = np.max(self.episode_rewards)
+                    
+                    # Log to tensorboard
+                    self.logger.record("reward/mean_episode", mean_reward)
+                    self.logger.record("reward/min_episode", min_reward)
+                    self.logger.record("reward/max_episode", max_reward)
+                    
+                    # Clear buffer
+                    self.episode_rewards = []
+        
         return True
 
 
@@ -141,7 +151,7 @@ def main():
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=3e-5,
+        learning_rate=1e-4,
         n_steps=2048,
         batch_size=64,
         # target_kl=0.02,
@@ -150,9 +160,9 @@ def main():
         gae_lambda=0.95,
         clip_range=0.2,
         # ent_coef=0.01,
-        max_grad_norm=0.4,
-        use_sde=True,
-        sde_sample_freq=4,
+        # max_grad_norm=0.4,
+        # use_sde=True,
+        # sde_sample_freq=4,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=policy_kwargs

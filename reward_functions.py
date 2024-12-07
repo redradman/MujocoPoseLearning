@@ -99,6 +99,8 @@ def humaniod_walking_reward(env_data, params=None):
     # Combine rewards
     reward = height_reward + velocity_reward + orientation_penalty - control_cost - action_smoothness_penalty
     # print(reward, height_reward, velocity_reward, orientation_penalty, control_cost)
+    # height_reward = 5 * np.exp(-0.5 * (z_pos - desired_z)**2)
+    # reward = height_reward
     return reward
 
 def quaternion_to_euler(quat):
