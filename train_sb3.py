@@ -55,7 +55,7 @@ class VideoRecorderCallback(BaseCallback):
                         obs = self.render_env.reset()[0]
                         done = False
                         while not done:
-                            action, _ = self.model.predict(obs, deterministic=True)
+                            action, _ = self.model.predict(obs, ) # removed deterministic = True 
                             obs, _, terminated, truncated, _ = self.render_env.step(action)
                             done = terminated or truncated
                         self.render_env.save_video(current_episode)
@@ -153,7 +153,7 @@ def main():
         env,
         learning_rate=1e-4,
         n_steps=2048,
-        batch_size=64,
+        batch_size=2048,
         # target_kl=0.02,
         n_epochs=10,
         gamma=0.999,
@@ -184,6 +184,8 @@ def main():
 
     # Save the final model
     model.save(str(storage_path / "final_model"))
+
+    env.close()
 
 if __name__ == '__main__':
     main() 

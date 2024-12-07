@@ -75,31 +75,57 @@ def humaniod_walking_reward(env_data, params=None):
     - reward: float
     """
     # Desired height
-    desired_z = 1.0
-    z_pos = env_data.qpos[2]
-    height_reward = np.exp(-0.5 * (z_pos - desired_z)**2)
+    # desired_z = 1.0
+    # z_pos = env_data.qpos[2]
+    # height_reward = np.exp(-0.5 * (z_pos - desired_z)**2)
 
-    # Forward velocity
-    x_vel = env_data.qvel[0]
-    velocity_reward = x_vel * 0.5  # Scale appropriately
+    # # Forward velocity
+    # x_vel = env_data.qvel[0]
+    # velocity_reward = x_vel * 0.5  # Scale appropriately
 
-    # Control effort
-    control_cost_weight = 0.01
-    control_cost = control_cost_weight * np.sum(np.square(env_data.ctrl))
+    # # Control effort
+    # control_cost_weight = 0.01
+    # control_cost = control_cost_weight * np.sum(np.square(env_data.ctrl))
 
-    # Add smoothness penalty to discourage rapid changes
-    action_smoothness_penalty = 0.005 * np.sum(np.square(np.diff(env_data.ctrl)))
+    # # Add smoothness penalty to discourage rapid changes
+    # action_smoothness_penalty = 0.005 * np.sum(np.square(np.diff(env_data.ctrl)))
 
-    # Orientation stability (e.g., keeping pitch and roll near zero)
-    orientation = env_data.qpos[3:7]
+    # # Orientation stability (e.g., keeping pitch and roll near zero)
+    # orientation = env_data.qpos[3:7]
+    # euler = quaternion_to_euler(orientation)
+    # roll, pitch = euler[0], euler[1]
+    # orientation_penalty = - (np.abs(roll) + np.abs(pitch)) * 0.1  # Adjust weight as needed
+
+    # # Combine rewards
+    # reward = height_reward + velocity_reward + orientation_penalty - control_cost - action_smoothness_penalty
+    # # print(reward, height_reward, velocity_reward, orientation_penalty, control_cost) # for debugging
+    # return reward
+
+    # Base reward for staying alive
+    alive_bonus = 1.0
+    
+    # Height reward
+    target_height = 1.282  # Typical standing height
+    current_height = env_data.qpos[2]
+    height_diff = abs(current_height - target_height)
+    height_reward = 1.0 * np.exp(-2.0 * height_diff)  # Peaks at target height, smoothly falls off
+    
+    # Upright reward (based on torso orientation)
+    orientation = env_data.qpos[3:7]  # quaternion
     euler = quaternion_to_euler(orientation)
     roll, pitch = euler[0], euler[1]
-    orientation_penalty = - (np.abs(roll) + np.abs(pitch)) * 0.1  # Adjust weight as needed
+    upright_reward = 1.0 * np.exp(-1.0 * (roll**2 + pitch**2))  # Peaks when upright
 
-    # Combine rewards
-    reward = height_reward + velocity_reward + orientation_penalty - control_cost - action_smoothness_penalty
-    # print(reward, height_reward, velocity_reward, orientation_penalty, control_cost) # for debugging
-    return reward
+    angular_velocity = env_data.qvel[3:6]
+    angular_velocity_reward = 1.0 * np.exp(-1.0 * np.linalg.norm(angular_velocity))
+    
+    # Total reward (all components are non-negative)
+    reward = alive_bonus + height_reward + upright_reward - angular_velocity_reward
+    # print(reward, height_reward, upright_reward, angular_velocity_reward)
+    # 
+    max_reward = 3.0
+    min_reward = 0.0
+    return reward / (max_reward - min_reward)
 
 def quaternion_to_euler(quat):
     """Convert quaternion to euler angles."""

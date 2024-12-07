@@ -168,10 +168,10 @@ class HumanoidEnv(Env):
         truncation_info = {}
         
         # Height check (too low or too high)
-        if height < 0.5:
+        if height < 0.8:
             truncated = True
             truncation_info['reason'] = 'too_low'
-        elif height > 2:  # Jumping/unstable behavior
+        elif height > 1.7:  # Jumping/unstable behavior
             truncated = True
             truncation_info['reason'] = 'too_high'
         
