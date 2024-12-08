@@ -8,9 +8,10 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-RENDER_INTERVAL = 1000
+TOTAL_TIMESTEPS = 50_000_000
+RENDER_INTERVAL = 2500
 N_ENVS = 8
-REWARD_FUNCTION = "walk"
+REWARD_FUNCTION = "gym"
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
 
@@ -30,7 +31,7 @@ class VideoRecorderCallback(BaseCallback):
             "model_path": str(xml_path),
             "render_mode": "rgb_array",
             "framerate": 60,
-            "duration": 30.0,
+            "duration": 10.0,
             "reward_config": {
                 "type": REWARD_FUNCTION,
             }
@@ -55,7 +56,7 @@ class VideoRecorderCallback(BaseCallback):
                         obs = self.render_env.reset()[0]
                         done = False
                         while not done:
-                            action, _ = self.model.predict(obs, deterministic=True)
+                            action, _ = self.model.predict(obs, ) # removed deterministic = True 
                             obs, _, terminated, truncated, _ = self.render_env.step(action)
                             done = terminated or truncated
                         self.render_env.save_video(current_episode)
@@ -128,7 +129,7 @@ def main():
         "model_path": str(xml_path),
         "render_mode": None,
         "framerate": 60,
-        "duration": 30.0,
+        "duration": 10.0,
         "reward_config": {
             "type": REWARD_FUNCTION,
         }
@@ -140,33 +141,55 @@ def main():
     # Define network architecture
     policy_kwargs = dict(
         net_arch=dict(
-            pi=[64, 64],
-            vf=[64, 64]
+            pi=[256, 256],
+            vf=[256, 256]
         ),
-        activation_fn=torch.nn.Tanh
+        activation_fn=torch.nn.Tanh,
+        # do not comment the two lines below. Seems to cause massive instability in the learning and huge KL divergence values when paired with ReLU
+        ortho_init=False,
+        log_std_init=-2
     )
 
+    def linear_schedule(initial_value, final_value):
+        def schedule(progress_remaining):
+            return final_value + progress_remaining * (initial_value - final_value)
+        return schedule
+
     # Create the model
-    # values adopted from https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml
+    # https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml can be used for guideance
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=1e-4,
+        learning_rate=3e-5,
         n_steps=2048,
-        batch_size=64,
-        # target_kl=0.02,
-        n_epochs=10,
-        gamma=0.999,
-        gae_lambda=0.95,
-        clip_range=0.2,
-        # ent_coef=0.01,
-        # max_grad_norm=0.4,
-        # use_sde=True,
-        # sde_sample_freq=4,
+        batch_size=1024,
+        n_epochs=5,
+        gamma=0.99,
+        gae_lambda=0.9,
+        clip_range=0.3,
+        ent_coef=0.002,
+        max_grad_norm=2,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=policy_kwargs
     )
+
+    # model = PPO(
+        # "MlpPolicy",
+        # env,
+        # learning_rate=5e-5,
+        # n_steps=1024,
+        # batch_size=256,
+        # n_epochs=10,
+        # gamma=0.99,
+        # gae_lambda=0.9,
+        # clip_range=0.3,
+        # ent_coef=0.002,
+        # max_grad_norm=2,
+        # tensorboard_log=str(storage_path / "tensorboard_logs"),
+        # verbose=1,
+        # policy_kwargs=policy_kwargs
+    # )
 
     # Setup callbacks
     callbacks = CallbackList([
@@ -176,7 +199,6 @@ def main():
     ])
 
     # Train the model
-    TOTAL_TIMESTEPS = 10_000_000
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,
         callback=callbacks
@@ -184,6 +206,8 @@ def main():
 
     # Save the final model
     model.save(str(storage_path / "final_model"))
+
+    env.close()
 
 if __name__ == '__main__':
     main() 
