@@ -46,19 +46,17 @@ class HumanoidEnv(Env):
         self.renderer = None
         self.step_count = 0
         self.init_qpos = self.data.qpos.copy()
-        self.init_qvel = self.data.qvel.copy()
+        self.init_qpos[2] = 1.282  # Set initial height
+        self.init_qpos[3:7] = [1, 0, 0, 0]  # Set quaternion to upright orientation
+        self.init_qvel = np.zeros_like(self.data.qvel)  # Zero initial velocities
         
         # Initialize renderer if we're going to render
         if self.render_mode == "rgb_array":
             print("Creating renderer during init")
             self.renderer = mujoco.Renderer(self.model)
 
-
-        obs_size = self.data.qpos.size + self.data.qvel.size
-        obs_size += self.data.cinert[1:].size 
-        obs_size += self.data.cvel[1:].size 
-        obs_size += (self.data.qvel.size - 6)
-        obs_size += self.data.cfrc_ext[1:].size
+        sample_state = self._get_state()
+        obs_size = sample_state.size
         # obs_size += self.data.crtl.size
                 
         # num_observations = (
@@ -92,22 +90,25 @@ class HumanoidEnv(Env):
             np.random.seed(seed)
         
         mujoco.mj_resetData(self.model, self.data)
-
-        # Add small random perturbations to initial positions and velocities
-        pos = self.init_qpos.copy()
-        qvel = self.init_qvel.copy()
         
-        # Position perturbations (smaller for stability)
-        pos_noise = np.random.uniform(low=-0.01, high=0.01, size=pos.shape)
-        pos += pos_noise
+        # Set initial pose
+        self.data.qpos[:] = self.init_qpos.copy()
+        self.data.qvel[:] = self.init_qvel.copy()
         
-        # Velocity perturbations
-        vel_noise = np.random.uniform(low=-0.1, high=0.1, size=qvel.shape)
-        qvel += vel_noise
+        # Smaller noise for stability
+        pos_noise = np.random.uniform(low=-0.005, high=0.005, size=self.data.qpos.shape)
+        vel_noise = np.random.uniform(low=-0.005, high=0.005, size=self.data.qvel.shape)
         
-        # Apply the perturbed positions and velocities
-        self.data.qpos[:] = pos
-        self.data.qvel[:] = qvel
+        # Don't add noise to critical components
+        pos_noise[2] *= 0.1  # Reduce height noise
+        pos_noise[3:7] = 0  # No noise in orientation
+        
+        self.data.qpos[:] += pos_noise
+        self.data.qvel[:] += vel_noise
+        
+        # Forward the simulation a tiny bit to stabilize
+        for _ in range(1):
+            mujoco.mj_step(self.model, self.data)
         
         # Clear frames and renderer on reset
         self.frames = []
@@ -162,40 +163,22 @@ class HumanoidEnv(Env):
         euler = self.quaternion_to_euler(orientation)
         roll, pitch = euler[0], euler[1]
         
-        ############# Check multiple conditions for truncation #############
+        ############# Minimal truncation conditions #############
         truncated = False
         truncation_info = {}
         
-        # Height check (too low or too high)
-        if height < 0.8:
+        # Only truncate for extreme cases
+        if height < 0.4:  # Very low height (basically collapsed)
             truncated = True
-            truncation_info['reason'] = 'too_low'
-        elif height > 1.7:  # Jumping/unstable behavior
+            truncation_info['reason'] = 'collapsed'
+            reward = -1.0  # Penalty for bad termination
+        elif abs(roll) > 1.5 or abs(pitch) > 1.5:  # ~85 degrees (nearly horizontal)
             truncated = True
-            truncation_info['reason'] = 'too_high'
-        
-        # Orientation check (falling over)
-        # if abs(roll) > 1.0 or abs(pitch) > 1.0:
-        #     truncated = True
-        #     truncation_info['reason'] = 'bad_orientation'
-
-        # Joint angle limits
-        # joint_angles = self.data.qpos[7:]
-        # if np.any(np.abs(joint_angles) > 2.0):  # ~115 degrees
-        #     truncated = True
-        #     truncation_info['reason'] = 'joint_limit'
-        
-        # # Energy consumption check
-        # if np.sum(np.square(self.data.ctrl)) > 100.0:
-        #     truncated = True
-        #     truncation_info['reason'] = 'excessive_force'
-        ###################### End check for truncation ######################
-
-        # Compute reward (will be 0 if truncated)
-        if not truncated:
-            reward = self._compute_reward()
+            truncation_info['reason'] = 'extreme_tilt'
+            reward = -1.0  # Penalty for bad termination
         else:
-            reward = 0.0
+            # Normal reward computation
+            reward = self._compute_reward()
         
         # Check for termination (episode timeout)
         terminated = self.data.time >= self.duration
@@ -250,24 +233,18 @@ class HumanoidEnv(Env):
         #     qvel,           # Joint velocities
         #     com_pos,        # Center of mass position (3D)
         #     com_vel,        # Center of mass velocity (3D)
-        #     contact_force,  # Contact forces (6D per body)
         # ])
 
         position = self.data.qpos.flatten()
         velocity = self.data.qvel.flatten()
         com_inertia = self.data.cinert[1:].flatten()
         com_velocity = self.data.cvel[1:].flatten()
-        actuator_forces = self.data.qfrc_actuator[6:].flatten()
-        external_contact_forces = self.data.cfrc_ext[1:].flatten()
         state = np.concatenate(
             (
                 position,
                 velocity,
                 com_inertia,
-                com_velocity,
-                actuator_forces,
-                external_contact_forces,
-                # crtl
+                com_velocity, 
             )
         )
 

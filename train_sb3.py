@@ -8,10 +8,10 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-TOTAL_TIMESTEPS = 10_000_000
+TOTAL_TIMESTEPS = 60_000_000
 RENDER_INTERVAL = 1000
 N_ENVS = 8
-REWARD_FUNCTION = "stand"
+REWARD_FUNCTION = "gym"
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
 
@@ -31,7 +31,7 @@ class VideoRecorderCallback(BaseCallback):
             "model_path": str(xml_path),
             "render_mode": "rgb_array",
             "framerate": 60,
-            "duration": 30.0,
+            "duration": 10.0,
             "reward_config": {
                 "type": REWARD_FUNCTION,
             }
@@ -129,7 +129,7 @@ def main():
         "model_path": str(xml_path),
         "render_mode": None,
         "framerate": 60,
-        "duration": 30.0,
+        "duration": 10.0,
         "reward_config": {
             "type": REWARD_FUNCTION,
         }
@@ -150,47 +150,46 @@ def main():
         # log_std_init=-2
     )
 
-    # Create the model
-    # values adopted from https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml
-    # model = PPO(
-    #     "MlpPolicy",
-    #     env,
-    #     learning_rate=1e-4,
-    #     n_steps=2048,
-    #     batch_size=128,
-    #     # target_kl=0.02,
-    #     n_epochs=10,
-    #     gamma=0.99,
-    #     gae_lambda=0.95,
-    #     clip_range=0.2,
-    #     ent_coef=0.01,
-    #     max_grad_norm=0.5,
-    #     # use_sde=True,
-    #     # sde_sample_freq=4,
-    #     tensorboard_log=str(storage_path / "tensorboard_logs"),
-    #     verbose=1,
-    #     policy_kwargs=policy_kwargs
-    # )
+    def linear_schedule(initial_value, final_value):
+        def schedule(progress_remaining):
+            return final_value + progress_remaining * (initial_value - final_value)
+        return schedule
 
+    # Create the model
+    # https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml can be used for guideance
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=5e-5,
+        learning_rate=3e-5,
         n_steps=2048,
-        batch_size=64,
-        # target_kl=0.02,
+        batch_size=1024,
         n_epochs=5,
         gamma=0.99,
-        gae_lambda=0.95,
-        # clip_range=0.3,
-        # ent_coef=0.002,
-        # max_grad_norm=2,
-        # use_sde=True,
-        # sde_sample_freq=4,
+        gae_lambda=0.9,
+        clip_range=0.3,
+        ent_coef=0.002,
+        max_grad_norm=2,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=policy_kwargs
     )
+
+    # model = PPO(
+        # "MlpPolicy",
+        # env,
+        # learning_rate=5e-5,
+        # n_steps=1024,
+        # batch_size=256,
+        # n_epochs=10,
+        # gamma=0.99,
+        # gae_lambda=0.9,
+        # clip_range=0.3,
+        # ent_coef=0.002,
+        # max_grad_norm=2,
+        # tensorboard_log=str(storage_path / "tensorboard_logs"),
+        # verbose=1,
+        # policy_kwargs=policy_kwargs
+    # )
 
     # Setup callbacks
     callbacks = CallbackList([

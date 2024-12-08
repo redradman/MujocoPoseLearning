@@ -1,5 +1,4 @@
 import numpy as np
-
 """
 MuJoCo Environment Data Structure (env_data) Guide (for the humanoid MJCF model):
 
@@ -79,9 +78,9 @@ def humanoid_standing_reward(env_data, params=None):
     # -----------------------
     target_height = 1.282   # Desired standing height
     max_time = 30            # Time threshold for full time-based reward
-    roll_pitch_weight = 1.0 # Weight in exponent for orientation penalty
-    height_weight = 2.0     # Weight in exponent for height deviation
-    angvel_weight = 1.0     # Weight in exponent for angular velocity
+    roll_pitch_weight = 2.0 # Weight in exponent for orientation penalty
+    height_weight = 1.0     # Weight in exponent for height deviation
+    angvel_weight = 0.5     # Weight in exponent for angular velocity
 
     # -----------------------
     # Extract State Variables
@@ -125,7 +124,7 @@ def humanoid_standing_reward(env_data, params=None):
     # Multiply sub-rewards. Each is in [0,1], so the product will also be in [0,1].
     # This ensures overall normalization without needing division by a max value.
     normalized_reward = (height_reward * 
-                         upright_reward * 
+                         upright_reward**2 * 
                          angular_velocity_reward * 
                          time_standing_reward)
 
@@ -197,6 +196,10 @@ def humanoid_balanced_standing_reward(env_data, params=None):
     # -----------------------
     # Compute Sub-Rewards [0,1]
     # -----------------------
+
+    if current_height < 0.8 or current_height > 1.7:
+        epsilon = 1e-8
+        return epsilon + 0.1 * (current_height / 0.8)
 
     # Height Reward
     height_diff = current_height - target_height
@@ -325,10 +328,88 @@ def humanoid_walking_reward(env_data, params=None):
 
     return reward
 
+def humanoid_gym_reward(env_data, params=None):
+    """
+    Implements a reward function similar to Gymnasium's Humanoid environment.
+    """
+    # Parameters
+    forward_reward_weight = 1.25
+    ctrl_cost_weight = 0.1
+    contact_cost_weight = 5e-7
+    contact_cost_range = (-np.inf, 10.0)
+    healthy_reward = 5.0
+    healthy_z_range = (1.0, 2.0)
+
+    # Extract State Variables
+    current_height = env_data.qpos[2]
+    forward_vel = env_data.qvel[0]  # x-axis velocity
+    
+    # Compute Rewards/Costs
+    is_healthy = healthy_z_range[0] < current_height < healthy_z_range[1]
+    healthy_reward_value = healthy_reward if is_healthy else 0.0
+    
+    forward_reward = forward_reward_weight * forward_vel
+    
+    ctrl_cost = ctrl_cost_weight * np.sum(np.square(env_data.ctrl))
+    
+    # Fixed contact cost calculation
+    contact_forces = []
+    for i in range(env_data.ncon):
+        contact_forces.append(env_data.contact[i].dist)
+    contact_forces = np.array(contact_forces)
+    contact_cost = contact_cost_weight * np.sum(np.square(contact_forces))
+    contact_cost = np.clip(contact_cost, contact_cost_range[0], contact_cost_range[1])
+
+    # Combine Rewards
+    reward = healthy_reward_value + forward_reward - ctrl_cost - contact_cost
+    
+    if params is not None:
+        params["previous_qpos"] = env_data.qpos.copy()
+    
+    return reward
+
+def simple_standing_reward(env_data, params=None):
+    """
+    Simple reward function focused on core standing behaviors.
+    Includes time-based incentives for learning from truncations.
+    """
+    # Core parameters
+    target_height = 1.282
+    height_weight = 1.0
+    orientation_weight = 0.5
+    
+    # Extract state
+    current_height = env_data.qpos[2]
+    orientation = env_data.qpos[3:7]
+    roll, pitch, _ = quaternion_to_euler(orientation)
+    
+    # Height reward (primary objective)
+    height_diff = current_height - target_height
+    height_reward = np.exp(-height_weight * (height_diff ** 2))
+    
+    # Orientation reward (secondary objective)
+    orientation_reward = np.exp(-orientation_weight * (roll**2 + pitch**2))
+    
+    # Time-based reward component
+    time_alive = env_data.time
+    time_reward = min(time_alive / 10.0, 1.0)  # Scales up to 1.0 over 10 seconds
+    
+    # Combine rewards with time incentive
+    reward = (0.6 * height_reward + 
+             0.2 * orientation_reward + 
+             0.2 * time_reward)
+    
+    # Add small constant reward for staying alive
+    reward += 0.1
+    
+    return reward
+
 # Dictionary mapping reward names to functions
 REWARD_FUNCTIONS = {
     'default': humanoid_standing_reward,
     'stand': humanoid_standing_reward,
     'stand_additive': humanoid_balanced_standing_reward,
-    'walk': humanoid_walking_reward
+    'walk': humanoid_walking_reward,
+    'gym': humanoid_gym_reward,
+    'another_stand': simple_standing_reward,
 }
