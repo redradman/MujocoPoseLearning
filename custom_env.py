@@ -192,7 +192,10 @@ class HumanoidEnv(Env):
         ###################### End check for truncation ######################
 
         # Compute reward (will be 0 if truncated)
-        reward = self._compute_reward()
+        if not truncated:
+            reward = self._compute_reward()
+        else:
+            reward = 0.0
         
         # Check for termination (episode timeout)
         terminated = self.data.time >= self.duration

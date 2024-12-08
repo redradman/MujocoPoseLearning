@@ -11,7 +11,7 @@ import numpy as np
 TOTAL_TIMESTEPS = 10_000_000
 RENDER_INTERVAL = 1000
 N_ENVS = 8
-REWARD_FUNCTION = "stand_additive"
+REWARD_FUNCTION = "stand"
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
 
@@ -145,11 +145,13 @@ def main():
             vf=[256, 256]
         ),
         activation_fn=torch.nn.Tanh,
+        # do not comment the two lines below. Seems to cause massive instability in the learning and huge KL divergence values when paired with ReLU
         # ortho_init=False,
         # log_std_init=-2
     )
 
     # Create the model
+    # values adopted from https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml
     # model = PPO(
     #     "MlpPolicy",
     #     env,
@@ -170,20 +172,19 @@ def main():
     #     policy_kwargs=policy_kwargs
     # )
 
-    # values adopted from https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=3e-5,
-        n_steps=512,
-        batch_size=256,
+        learning_rate=5e-5,
+        n_steps=2048,
+        batch_size=64,
         # target_kl=0.02,
         n_epochs=5,
         gamma=0.99,
-        gae_lambda=0.9,
-        clip_range=0.3,
-        ent_coef=0.002,
-        max_grad_norm=2,
+        gae_lambda=0.95,
+        # clip_range=0.3,
+        # ent_coef=0.002,
+        # max_grad_norm=2,
         # use_sde=True,
         # sde_sample_freq=4,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
