@@ -8,9 +8,10 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
+TOTAL_TIMESTEPS = 10_000_000
 RENDER_INTERVAL = 1000
 N_ENVS = 8
-REWARD_FUNCTION = "walk"
+REWARD_FUNCTION = "stand_additive"
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
 
@@ -140,27 +141,49 @@ def main():
     # Define network architecture
     policy_kwargs = dict(
         net_arch=dict(
-            pi=[64, 64],
-            vf=[64, 64]
+            pi=[256, 256],
+            vf=[256, 256]
         ),
-        activation_fn=torch.nn.Tanh
+        activation_fn=torch.nn.Tanh,
+        # ortho_init=False,
+        # log_std_init=-2
     )
 
     # Create the model
+    # model = PPO(
+    #     "MlpPolicy",
+    #     env,
+    #     learning_rate=1e-4,
+    #     n_steps=2048,
+    #     batch_size=128,
+    #     # target_kl=0.02,
+    #     n_epochs=10,
+    #     gamma=0.99,
+    #     gae_lambda=0.95,
+    #     clip_range=0.2,
+    #     ent_coef=0.01,
+    #     max_grad_norm=0.5,
+    #     # use_sde=True,
+    #     # sde_sample_freq=4,
+    #     tensorboard_log=str(storage_path / "tensorboard_logs"),
+    #     verbose=1,
+    #     policy_kwargs=policy_kwargs
+    # )
+
     # values adopted from https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=1e-4,
-        n_steps=2048,
-        batch_size=2048,
+        learning_rate=3e-5,
+        n_steps=512,
+        batch_size=256,
         # target_kl=0.02,
-        n_epochs=10,
-        gamma=0.999,
-        gae_lambda=0.95,
-        clip_range=0.2,
-        # ent_coef=0.01,
-        # max_grad_norm=0.4,
+        n_epochs=5,
+        gamma=0.99,
+        gae_lambda=0.9,
+        clip_range=0.3,
+        ent_coef=0.002,
+        max_grad_norm=2,
         # use_sde=True,
         # sde_sample_freq=4,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
@@ -176,7 +199,6 @@ def main():
     ])
 
     # Train the model
-    TOTAL_TIMESTEPS = 10_000_000
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,
         callback=callbacks

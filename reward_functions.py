@@ -63,92 +63,272 @@ Note: Exact indices might vary based on the specific humanoid XML model being us
 """
 ########################################################################################
 
-def humaniod_walking_reward(env_data, params=None):
+def humanoid_standing_reward(env_data, params=None):
     """
-    Reward function for humanoid walking that encourages:
-    - Maintaining appropriate height
-    - Moving forward
-    - Minimizing control effort
-    - Maintaining stable orientation
+    Computes a normalized, non-negative reward for encouraging the humanoid to stand 
+    steadily for over 30 seconds. The reward factors in height, orientation, angular 
+    stability, and how long the humanoid has been standing. 
 
     Returns:
-    - reward: float
+        normalized_reward (float): A value in [0, 1], where 0 means poor standing performance 
+                                   and 1 means ideal long-term standing stability.
     """
-    # Desired height
-    # desired_z = 1.0
-    # z_pos = env_data.qpos[2]
-    # height_reward = np.exp(-0.5 * (z_pos - desired_z)**2)
 
-    # # Forward velocity
-    # x_vel = env_data.qvel[0]
-    # velocity_reward = x_vel * 0.5  # Scale appropriately
+    # -----------------------
+    # Parameters & References
+    # -----------------------
+    target_height = 1.282   # Desired standing height
+    max_time = 30            # Time threshold for full time-based reward
+    roll_pitch_weight = 1.0 # Weight in exponent for orientation penalty
+    height_weight = 2.0     # Weight in exponent for height deviation
+    angvel_weight = 1.0     # Weight in exponent for angular velocity
 
-    # # Control effort
-    # control_cost_weight = 0.01
-    # control_cost = control_cost_weight * np.sum(np.square(env_data.ctrl))
-
-    # # Add smoothness penalty to discourage rapid changes
-    # action_smoothness_penalty = 0.005 * np.sum(np.square(np.diff(env_data.ctrl)))
-
-    # # Orientation stability (e.g., keeping pitch and roll near zero)
-    # orientation = env_data.qpos[3:7]
-    # euler = quaternion_to_euler(orientation)
-    # roll, pitch = euler[0], euler[1]
-    # orientation_penalty = - (np.abs(roll) + np.abs(pitch)) * 0.1  # Adjust weight as needed
-
-    # # Combine rewards
-    # reward = height_reward + velocity_reward + orientation_penalty - control_cost - action_smoothness_penalty
-    # # print(reward, height_reward, velocity_reward, orientation_penalty, control_cost) # for debugging
-    # return reward
-
-    # Base reward for staying alive
-    alive_bonus = 1.0
-    
-    # Height reward
-    target_height = 1.282  # Typical standing height
+    # -----------------------
+    # Extract State Variables
+    # -----------------------
     current_height = env_data.qpos[2]
-    height_diff = abs(current_height - target_height)
-    height_reward = 1.0 * np.exp(-2.0 * height_diff)  # Peaks at target height, smoothly falls off
-    
-    # Upright reward (based on torso orientation)
-    orientation = env_data.qpos[3:7]  # quaternion
-    euler = quaternion_to_euler(orientation)
-    roll, pitch = euler[0], euler[1]
-    upright_reward = 1.0 * np.exp(-1.0 * (roll**2 + pitch**2))  # Peaks when upright
 
+    # Orientation (roll, pitch, yaw) from quaternion
+    orientation = env_data.qpos[3:7]
+    roll, pitch, _ = quaternion_to_euler(orientation)
+
+    # Angular velocity of the torso
     angular_velocity = env_data.qvel[3:6]
-    angular_velocity_reward = 1.0 * np.exp(-1.0 * np.linalg.norm(angular_velocity))
+    ang_vel_norm = np.linalg.norm(angular_velocity)
+
+    # Time alive in the simulation
+    time_alive = env_data.time
+
+    # -----------------------
+    # Compute Sub-Rewards
+    # -----------------------
+
+    # 1. Height Reward: Peak at target height, decreases with deviation
+    height_diff = current_height - target_height
+    # Using an exponential decay: reward = exp(-height_weight * height_diff^2)
+    height_reward = np.exp(-height_weight * (height_diff ** 2))
+
+    # 2. Orientation Reward: Favor small roll/pitch
+    # Orientation deviation: roll^2 + pitch^2
+    upright_reward = np.exp(-roll_pitch_weight * (roll**2 + pitch**2))
+
+    # 3. Angular Velocity Reward: Favor minimal rotational movement
+    angular_velocity_reward = np.exp(-angvel_weight * ang_vel_norm)
+
+    # 4. Time Standing Reward: 
+    # Linearly scale from 0 at t=0s to 1 at t=30s (or above)
+    time_standing_reward = min(time_alive / max_time, 1.0)
+
+    # -----------------------
+    # Combine and Normalize
+    # -----------------------
+    # Multiply sub-rewards. Each is in [0,1], so the product will also be in [0,1].
+    # This ensures overall normalization without needing division by a max value.
+    normalized_reward = (height_reward * 
+                         upright_reward * 
+                         angular_velocity_reward * 
+                         time_standing_reward)
+
+    # Save state for potential future use (e.g., smoothness calculation)
+    if params is not None:
+        params["previous_qpos"] = env_data.qpos.copy()
+
+    # -----------------------
+    # Return the Final Reward
+    # -----------------------
+    # Bounds:
+    # lower_bound = 0.0
+    # upper_bound = 1.0
+    return normalized_reward
+
+def humanoid_balanced_standing_reward(env_data, params=None):
+    """
+    Computes a balanced, additive reward for humanoid standing that encourages good height, 
+    orientation, minimized angular velocity, natural posture, low torque usage, and 
+    prolonged standing. The rewards are summed (with weights) and then scaled back into [0,1].
+    """
+    # -----------------------
+    # Parameters & References
+    # -----------------------
+    target_height = 1.282
+    max_time = 30.0
+    roll_pitch_weight = 2.0
+    height_weight = 2.0
+    angvel_weight = 1.0
+    # posture_weight = 0.5
+    torque_weight = 0.001
+
+    # Weighted combination parameters
+    # Adjust these weights to emphasize different aspects of the standing task.
+    w_height = 1.0
+    w_orientation = 1.0
+    w_angvel = 1.0
+    w_time = 1.0
+    w_posture = 1.0
+    w_torque = 1.0
+
+    # # Indices for arm joints or relevant posture joints (example indices)
+    # arm_joint_indices = [10, 11, 12, 13]
+    # arm_target_angles = np.array([0.0, 0.0, 0.0, 0.0])  # desired neutral angles
+
+    # -----------------------
+    # Extract State Variables
+    # -----------------------
+    current_height = env_data.qpos[2]
+
+    # Orientation
+    orientation = env_data.qpos[3:7]
+    roll, pitch, yaw = quaternion_to_euler(orientation)
+
+    # Angular velocity
+    angular_velocity = env_data.qvel[3:6]
+    ang_vel_norm = np.linalg.norm(angular_velocity)
+
+    # Time alive
+    time_alive = env_data.time
+
+    # Joint angles
+    # joint_angles = env_data.qpos[7:]
+    # arm_angles = joint_angles[arm_joint_indices]
+
+    # Control torques
+    torques = env_data.ctrl
+
+    # -----------------------
+    # Compute Sub-Rewards [0,1]
+    # -----------------------
+
+    # Height Reward
+    height_diff = current_height - target_height
+    height_reward = np.exp(-height_weight * (height_diff ** 2))
+
+    # Orientation Reward (penalize large roll/pitch)
+    orientation_reward = np.exp(-roll_pitch_weight * (roll**2 + pitch**2))
+
+    # Angular Velocity Reward
+    angular_velocity_reward = np.exp(-angvel_weight * ang_vel_norm)
+
+    # Time Standing Reward (0 to 1 as time goes from 0 to 30s)
+    time_standing_reward = min(time_alive / max_time, 1.0)
+
+    # Posture Reward (penalize deviation from target arm angles)
+    # arm_deviation = np.linalg.norm(arm_angles - arm_target_angles)
+    # posture_reward = np.exp(-posture_weight * arm_deviation)
+
+    # Torque Reward (less torque = better)
+    torque_norm = np.sum(np.abs(torques))
+    torque_reward = np.exp(-torque_weight * torque_norm)
+
+    # -----------------------
+    # Combine Additively and Scale
+    # -----------------------
+    # Weighted sum of rewards:
+    weighted_sum = (w_height * height_reward +
+                    w_orientation * orientation_reward +
+                    w_angvel * angular_velocity_reward +
+                    w_time * time_standing_reward +
+                    # w_posture * posture_reward +
+                    w_torque * torque_reward)
+
+    total_weight = (w_height + w_orientation + w_angvel + w_time + w_posture + w_torque)
     
-    # Total reward (all components are non-negative)
-    reward = alive_bonus + height_reward + upright_reward - angular_velocity_reward
-    # print(reward, height_reward, upright_reward, angular_velocity_reward)
-    # 
-    max_reward = 3.0
-    min_reward = 0.0
-    return reward / (max_reward - min_reward)
+    # Normalize the weighted sum to keep it in [0, 1]
+    # Since each sub-component is already in [0,1], dividing by total_weight ensures we get a value ≤ 1.
+    normalized_reward = weighted_sum / total_weight
+
+    # Save state for potential future use
+    if params is not None:
+        params["previous_qpos"] = env_data.qpos.copy()
+
+    return normalized_reward
+
 
 def quaternion_to_euler(quat):
-    """Convert quaternion to euler angles."""
+    """Convert quaternion to euler angles (roll, pitch, yaw)."""
     w, x, y, z = quat
 
-    # Roll (x-axis rotation)
+    # Roll
     sinr_cosp = 2.0 * (w * x + y * z)
     cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
     roll = np.arctan2(sinr_cosp, cosr_cosp)
 
-    # Pitch (y-axis rotation)
+    # Pitch
     sinp = 2.0 * (w * y - z * x)
     pitch = np.arcsin(np.clip(sinp, -1.0, 1.0))
 
-    # Yaw (z-axis rotation)
+    # Yaw
     siny_cosp = 2.0 * (w * z + x * y)
     cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
     yaw = np.arctan2(siny_cosp, cosy_cosp)
 
     return np.array([roll, pitch, yaw])
 
+def humanoid_walking_reward(env_data, params=None):
+    """
+    Computes a multiplicative ("AND"-style) reward to encourage a humanoid to walk forward at a desired speed 
+    while maintaining good posture, appropriate height, and efficient use of torque. Each component must be 
+    good for the overall reward to remain high.
+    """
+
+    # -----------------------
+    # Parameters
+    # -----------------------
+    target_forward_speed = 1.0    # Target forward speed (m/s)
+    height_target = 1.3           # Desired torso height
+    roll_pitch_weight = 2.0       # Penalize non-upright posture more heavily
+    height_weight = 2.0           # Penalize deviation from target height
+    torque_weight = 0.001         # Weight for torque penalty
+
+    # Extract State Variables
+    forward_vel = env_data.qvel[0]
+    current_height = env_data.qpos[2]
+
+    # Orientation (roll, pitch, yaw)
+    orientation = env_data.qpos[3:7]
+    roll, pitch, yaw = quaternion_to_euler(orientation)
+
+    # Torques
+    torques = env_data.ctrl
+
+    # -----------------------
+    # Compute Sub-Rewards (each in [0,1])
+    # -----------------------
+
+    # Forward velocity: target speed = 1.0 m/s
+    # Use a Gaussian-like reward for hitting target speed
+    vel_diff = forward_vel - target_forward_speed
+    forward_vel_reward = np.exp(-(vel_diff ** 2))
+
+    # Posture: penalize large roll and pitch
+    posture_reward = np.exp(-roll_pitch_weight * (roll**2 + pitch**2))
+
+    # Height: penalize deviation from target height
+    height_diff = current_height - height_target
+    height_reward = np.exp(-height_weight * (height_diff ** 2))
+
+    # Torque: less torque is better
+    torque_norm = np.sum(np.abs(torques))
+    torque_reward = np.exp(-torque_weight * torque_norm)
+
+    # -----------------------
+    # Multiplicative Combination
+    # -----------------------
+    # If any component is low, the product is low, enforcing that all conditions must be met.
+    reward = (forward_vel_reward *
+              posture_reward *
+              height_reward *
+              torque_reward)
+
+    # Save state if needed
+    if params is not None:
+        params["previous_qpos"] = env_data.qpos.copy()
+
+    return reward
+
 # Dictionary mapping reward names to functions
 REWARD_FUNCTIONS = {
-    'default': humaniod_walking_reward,
-    'walk': humaniod_walking_reward  # Add this line
+    'default': humanoid_standing_reward,
+    'stand': humanoid_standing_reward,
+    'stand_additive': humanoid_balanced_standing_reward,
+    'walk': humanoid_walking_reward
 }

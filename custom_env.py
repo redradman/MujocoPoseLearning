@@ -6,7 +6,7 @@ from pathlib import Path
 from reward_functions import REWARD_FUNCTIONS
 
 CLIP_OBSERVATION_VALUE = np.inf # decided on no clipping for now (might have to revise if experiencing exploding gradient problem)
-ACTION_CLIP_VALUE = 0.5 # allow the full range of motion
+ACTION_CLIP_VALUE = 1 # allow the full range of motion
 
 class HumanoidEnv(Env):
     metadata = {
@@ -148,7 +148,6 @@ class HumanoidEnv(Env):
         # Apply actions
         self.data.ctrl[:] = action
         # print(self.data.ctrl)
-        
         # Debug info
         # if np.any(np.abs(self.data.ctrl) >= ACTION_CLIP_VALUE):
             # print(f"Warning: Actions hitting bounds: {np.sum(np.abs(self.data.ctrl) >= ACTION_CLIP_VALUE)} times")
