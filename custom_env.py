@@ -287,13 +287,16 @@ class HumanoidEnv(Env):
         
         # Create renderer if it doesn't exist
         if self.renderer is None:
-            self.renderer = mujoco.Renderer(self.model)
+            self.renderer = mujoco.Renderer(self.model, height=480, width=640)
         
         # Match the working example exactly
         if len(self.frames) < self.data.time * self.framerate:
             self.renderer.update_scene(self.data)
+            # Explicitly select the 'back' camera
+            camera_id = self.model.camera('side').id
+            self.renderer.update_scene(self.data, camera=camera_id)
             pixels = self.renderer.render()
-            self.frames.append(pixels)  # Store raw pixels without conversion
+            self.frames.append(pixels)
 
     def save_video(self, episode_num):
         recordings_dir = Path("recordings")

@@ -8,8 +8,8 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-TOTAL_TIMESTEPS = 60_000_000
-RENDER_INTERVAL = 1000
+TOTAL_TIMESTEPS = 50_000_000
+RENDER_INTERVAL = 2500
 N_ENVS = 8
 REWARD_FUNCTION = "gym"
 # Global synchronized counter
@@ -146,8 +146,8 @@ def main():
         ),
         activation_fn=torch.nn.Tanh,
         # do not comment the two lines below. Seems to cause massive instability in the learning and huge KL divergence values when paired with ReLU
-        # ortho_init=False,
-        # log_std_init=-2
+        ortho_init=False,
+        log_std_init=-2
     )
 
     def linear_schedule(initial_value, final_value):
