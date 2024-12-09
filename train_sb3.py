@@ -12,6 +12,10 @@ TOTAL_TIMESTEPS = 5_000_000
 RENDER_INTERVAL = 1000
 N_ENVS = 8
 REWARD_FUNCTION = "standing_time"
+FRAME_SKIP = 3
+DURATION = 10.0
+FRAMERATE = 60
+
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
 
@@ -30,11 +34,12 @@ class VideoRecorderCallback(BaseCallback):
         self.render_env = HumanoidEnv({
             "model_path": str(xml_path),
             "render_mode": "rgb_array",
-            "framerate": 60,
-            "duration": 10.0,
+            "framerate": FRAMERATE,
+            "duration": DURATION,
             "reward_config": {
                 "type": REWARD_FUNCTION,
-            }
+            },
+            "frame_skip": FRAME_SKIP
         })
         
         # Initialize episode tracking for each env

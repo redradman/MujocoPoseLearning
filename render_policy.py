@@ -1,6 +1,7 @@
 from stable_baselines3 import PPO
 from custom_env import HumanoidEnv
 from pathlib import Path
+from train_sb3 import FRAMERATE, DURATION, FRAME_SKIP, REWARD_FUNCTION
 
 def render_trained_model(model_path, num_steps=1000):
     # Load trained model
@@ -13,9 +14,10 @@ def render_trained_model(model_path, num_steps=1000):
     env = HumanoidEnv({
         "model_path": str(xml_path),
         "render_mode": "rgb_array",
-        "framerate": 60,
-        "duration": 30.0,
-        "reward_config": {"type": "stand"}
+        "framerate": FRAMERATE,
+        "duration": DURATION,
+        "reward_config": {"type": REWARD_FUNCTION},
+        "frame_skip": FRAME_SKIP
     })
     
     # Reset environment
@@ -24,7 +26,7 @@ def render_trained_model(model_path, num_steps=1000):
     # Run the model and render
     for step in range(num_steps):
         # Get action from the policy
-        action, _ = model.predict(obs, deterministic=True)
+        action, _ = model.predict(obs, deterministic=True) # make deterministic (critical)
         
         # Step environment
         obs, reward, terminated, truncated, info = env.step(action)
