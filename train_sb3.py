@@ -11,7 +11,7 @@ import numpy as np
 TOTAL_TIMESTEPS = 5_000_000
 RENDER_INTERVAL = 1000
 N_ENVS = 8
-REWARD_FUNCTION = "another_stand"
+REWARD_FUNCTION = "standing_time"
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
 
@@ -132,8 +132,16 @@ def main():
         "duration": 10.0,
         "reward_config": {
             "type": REWARD_FUNCTION,
+            "params": {
+                "target_height": 1.2,
+                "min_height": 0.8,
+                "max_roll_pitch": np.pi / 6,
+                "height_weight": 1.0,
+                "orientation_weight": 1.0,
+                "time_weight": 0.1
+            }
         },
-        "frame_skip": 5,
+        "frame_skip": 3,
     }
 
     # Create vectorized environment
@@ -142,8 +150,8 @@ def main():
     # Define network architecture
     policy_kwargs = dict(
         net_arch=dict(
-            pi=[256, 256],
-            vf=[256, 256]
+            pi=[256, 128],
+            vf=[256, 128]
         ),
         activation_fn=torch.nn.ReLU,
         # do not comment the two lines below. Seems to cause massive instability in the learning and huge KL divergence values when paired with ReLU
@@ -161,16 +169,16 @@ def main():
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate= 30e-05,
-        n_steps=2048,
+        learning_rate= 3e-05,
+        n_steps=512,
         batch_size=256,
-        n_epochs=10,
+        n_epochs=5,
         gamma=0.99,
         gae_lambda=0.9,
         clip_range=0.3,
         ent_coef= 0.002,
         max_grad_norm=2,
-        # vf_coef= 0.431892,
+        vf_coef= 0.431892,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=policy_kwargs

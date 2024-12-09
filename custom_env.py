@@ -25,6 +25,8 @@ class HumanoidEnv(Env):
             self.render_interval = env_config.get('render_interval', 100)
             self.reward_config = env_config.get('reward_config', {'type': 'default'})
             self.frame_skip = env_config.get('frame_skip', 5)  # Default to 5 like gym
+            self.grace_period_length = env_config.get('grace_period_length', 300)
+            self.grace_period_steps = 0
         else:
             # For backward compatibility
             self.model_path = env_config
@@ -34,6 +36,7 @@ class HumanoidEnv(Env):
             self.render_interval = 100
             self.reward_config = {'type': 'default'}
             self.frame_skip = 5
+            self.grace_period_steps = 0
 
         print("Initializing environment with:")
         print(f"- model_path: {self.model_path}")
@@ -163,11 +166,27 @@ class HumanoidEnv(Env):
         truncation_info = {}
 
         # Adjusted grace period steps (e.g., 240 steps for ~6 seconds)
-        if self.step_count > 300 and height < 0.8:
-            truncated = True
-            truncation_info['reason'] = 'collapsed'
-            reward *= 0.2  # Reduce reward but don't eliminate it
+        # grace_period_length = 100
+        # if height < 0.8:
+        #     self.grace_period_steps += 1
+        #     if self.grace_period_steps >= grace_period_length:
+        #         truncated = True
+        #         truncation_info['reason'] = 'collapsed'
+        #         reward = 0  
+        #     else:
+        #         reward *= ((grace_period_length - self.step_count) / grace_period_length) * 0.3
+        # elif height > 0.8:
+        #     self.grace_period_steps = 0
 
+        # Truncation condition
+        min_height = 0.5
+        truncated = False
+        truncation_info = {}
+
+        if height < min_height:
+            truncated = True
+            truncation_info['reason'] = 'fallen'
+            reward = 0.0
         # Termination condition (episode timeout)
         terminated = self.data.time >= self.duration
 
