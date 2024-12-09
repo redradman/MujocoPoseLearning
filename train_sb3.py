@@ -8,8 +8,8 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-TOTAL_TIMESTEPS = 5_000_000
-RENDER_INTERVAL = 1000
+TOTAL_TIMESTEPS = 20_000_000
+RENDER_INTERVAL = 5000
 N_ENVS = 8
 REWARD_FUNCTION = "standing_time"
 FRAME_SKIP = 3
@@ -153,17 +153,6 @@ def main():
     env = SubprocVecEnv([make_env(env_config, i) for i in range(N_ENVS)])
 
     # Define network architecture
-    policy_kwargs = dict(
-        net_arch=dict(
-            pi=[256, 256, 256],
-            vf=[256, 256, 256]
-        ),
-        activation_fn=torch.nn.ReLU,
-        # do not comment the two lines below. Seems to cause massive instability in the learning and huge KL divergence values when paired with ReLU
-        ortho_init=False,
-        log_std_init=-2
-    )
-
     def linear_schedule(initial_value, final_value):
         def schedule(progress_remaining):
             return final_value + progress_remaining * (initial_value - final_value)
@@ -171,22 +160,29 @@ def main():
 
     # Create the model
     # https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml can be used for guideance
+    # https://github.com/openai/baselines/blob/master/baselines/ppo1/run_mujoco.py also very useful
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate= 3e-05,
+        learning_rate=5e-5,
         n_steps=2048,
-        batch_size=256,
-        n_epochs=5,
+        batch_size=64,
+        n_epochs=10,
         gamma=0.99,
-        gae_lambda=0.9,
-        clip_range=0.3,
-        ent_coef= 0.002,
-        max_grad_norm=2,
-        vf_coef= 0.431892,
+        gae_lambda=0.95,
+        clip_range=0.2,
+        # max_grad_norm=2,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
-        policy_kwargs=policy_kwargs
+        policy_kwargs=dict(
+            log_std_init=-2,
+            ortho_init=False,
+            activation_fn=torch.nn.ReLU,
+            net_arch=dict(
+                pi=[128, 128], 
+                vf=[128, 128]
+            )
+        )
     )
 
     # model = PPO(

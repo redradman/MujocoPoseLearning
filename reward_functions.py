@@ -415,24 +415,11 @@ def improved_standing_reward(env_data, params=None):
     return reward
 
 def standing_time_reward(env_data, params=None):
-    """
-    Reward function designed to encourage the humanoid to stand upright for extended periods.
-    The reward increases the longer the agent maintains an upright posture.
-
-    Parameters:
-        env_data: MuJoCo environment data containing simulation state.
-        params (dict): Optional parameters for configuring the reward function.
-
-    Returns:
-        reward (float): The calculated reward value.
-    """
-
     # Default parameters
     target_height = params.get('target_height', 1.2) if params else 1.2
     min_height = params.get('min_height', 0.8) if params else 0.8
-    max_roll_pitch = params.get('max_roll_pitch', np.pi / 6) if params else np.pi / 6  # 30 degrees
-    height_weight = params.get('height_weight', 1.0) if params else 1.0
-    orientation_weight = params.get('orientation_weight', 1.0) if params else 1
+    height_weight = params.get('height_weight', 5.0) if params else 5.0
+    orientation_weight = params.get('orientation_weight', 5.0) if params else 5.0
     time_weight = params.get('time_weight', 0.1) if params else 0.1
 
     # Extract state
@@ -446,19 +433,18 @@ def standing_time_reward(env_data, params=None):
         return 0.0  # No reward if the agent has fallen
 
     # Height reward (value between 0 and 1)
-    height_error = target_height - current_height
+    height_error = current_height - target_height
     height_reward = np.exp(-height_weight * height_error ** 2)
 
     # Orientation reward (value between 0 and 1)
-    roll_penalty = (roll / max_roll_pitch) ** 2
-    pitch_penalty = (pitch / max_roll_pitch) ** 2
-    orientation_reward = np.exp(-orientation_weight/2 * (roll_penalty + pitch_penalty))
+    orientation_error = (roll ** 2 + pitch ** 2)
+    orientation_reward = np.exp(-orientation_weight * orientation_error)
 
-    # Time reward (steady increase over time)
+    # Time reward (linear increase)
     time_reward = time_weight * time_alive
 
-    # Total reward
-    reward = (height_reward * orientation_reward) + time_reward**2
+    # Total reward (additive)
+    reward = height_reward + orientation_reward + time_reward*5
 
     return reward
 

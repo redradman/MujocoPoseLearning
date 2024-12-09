@@ -4,6 +4,7 @@ import mediapy as media
 from gymnasium import spaces, Env
 from pathlib import Path
 from reward_functions import REWARD_FUNCTIONS
+from reward_functions import quaternion_to_euler
 
 CLIP_OBSERVATION_VALUE = np.inf # decided on no clipping for now (might have to revise if experiencing exploding gradient problem)
 ACTION_CLIP_VALUE = 0.5 # allow the full range of motion
@@ -179,7 +180,8 @@ class HumanoidEnv(Env):
         #     self.grace_period_steps = 0
 
         # Truncation condition
-        min_height = 0.5
+        min_height = 0.8
+        max_roll_pitch = np.pi / 4  # 45 degrees
         truncated = False
         truncation_info = {}
 
@@ -187,6 +189,15 @@ class HumanoidEnv(Env):
             truncated = True
             truncation_info['reason'] = 'fallen'
             reward = 0.0
+        else:
+            # Check for excessive tilt
+            orientation = self.data.qpos[3:7]
+            roll, pitch, _ = quaternion_to_euler(orientation)
+
+            if abs(roll) > max_roll_pitch or abs(pitch) > max_roll_pitch:
+                truncated = True
+                truncation_info['reason'] = 'lost_balance'
+                reward = 0.0
         # Termination condition (episode timeout)
         terminated = self.data.time >= self.duration
 
