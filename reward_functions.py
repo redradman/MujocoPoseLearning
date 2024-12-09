@@ -123,9 +123,9 @@ def humanoid_standing_reward(env_data, params=None):
     # -----------------------
     # Multiply sub-rewards. Each is in [0,1], so the product will also be in [0,1].
     # This ensures overall normalization without needing division by a max value.
-    normalized_reward = (height_reward * 
-                         upright_reward**2 * 
-                         angular_velocity_reward * 
+    normalized_reward = (height_reward +
+                         upright_reward *
+                         angular_velocity_reward + 
                          time_standing_reward)
 
     # Save state for potential future use (e.g., smoothness calculation)
@@ -138,6 +138,8 @@ def humanoid_standing_reward(env_data, params=None):
     # Bounds:
     # lower_bound = 0.0
     # upper_bound = 1.0
+    if current_height < 1.0:
+        return np.log(current_height)
     return normalized_reward
 
 def humanoid_balanced_standing_reward(env_data, params=None):
@@ -392,7 +394,7 @@ def simple_standing_reward(env_data, params=None):
     
     # Time-based reward component
     time_alive = env_data.time
-    time_reward = min(time_alive / 10.0, 1.0)  # Scales up to 1.0 over 10 seconds
+    time_reward = min(time_alive / 3.0, 1.0)  # Scales up to 1.0 over 10 seconds
     
     # Combine rewards with time incentive
     reward = (0.6 * height_reward + 
@@ -404,6 +406,26 @@ def simple_standing_reward(env_data, params=None):
     
     return reward
 
+def time_based_standing_reward(env_data, params=None):
+    """
+    Simple reward function that provides a reward based solely on the time the agent remains standing.
+    """
+    # Extract the current height of the agent
+    current_height = env_data.qpos[2]
+    
+    # Define a threshold height to consider the agent as "standing"
+    standing_threshold = 1.2  # Adjust based on your model's height when standing
+    
+    # Check if the agent is above the standing threshold
+    if current_height >= standing_threshold:
+        # Reward is proportional to the time alive
+        reward = env_data.time
+    else:
+        # If the agent is not standing, give a small penalty
+        reward = np.log(current_height)
+    
+    return reward
+
 # Dictionary mapping reward names to functions
 REWARD_FUNCTIONS = {
     'default': humanoid_standing_reward,
@@ -412,4 +434,5 @@ REWARD_FUNCTIONS = {
     'walk': humanoid_walking_reward,
     'gym': humanoid_gym_reward,
     'another_stand': simple_standing_reward,
+    'time_based_stand': time_based_standing_reward,
 }

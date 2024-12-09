@@ -170,7 +170,7 @@ class HumanoidEnv(Env):
         truncation_info = {}
         
         # Only truncate for extreme cases
-        if height < 0.8:  # More lenient height threshold
+        if height < 0.5:  # More lenient height threshold
             truncated = True
             truncation_info['reason'] = 'collapsed'
             reward = 0  # Penalty for bad termination

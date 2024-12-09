@@ -8,10 +8,10 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-TOTAL_TIMESTEPS = 12_000_000
+TOTAL_TIMESTEPS = 5_000_000
 RENDER_INTERVAL = 10_000
 N_ENVS = 8
-REWARD_FUNCTION = "gym"
+REWARD_FUNCTION = "time_based_stand"
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
 
@@ -168,9 +168,9 @@ def main():
         gamma=0.99,
         gae_lambda=0.9,
         clip_range=0.3,
-        ent_coef= 0.00238306,
+        ent_coef= 0.002,
         max_grad_norm=2,
-        vf_coef= 0.431892,
+        # vf_coef= 0.431892,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=policy_kwargs
