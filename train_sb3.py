@@ -9,8 +9,7 @@ import ctypes
 import numpy as np
 
 RENDER_INTERVAL = 200
-N_ENVS = 12
-
+N_ENVS = 3
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
 
@@ -32,7 +31,7 @@ class VideoRecorderCallback(BaseCallback):
             "framerate": 60,
             "duration": 30.0,
             "reward_config": {
-                "type": "mujoco_humanoid",
+                "type": "default",
             }
         })
         
@@ -87,7 +86,7 @@ def main():
         "framerate": 60,
         "duration": 30.0,
         "reward_config": {
-            "type": "mujoco_humanoid",
+            "type": "default",
         }
     }
 
