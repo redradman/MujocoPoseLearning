@@ -13,3 +13,4 @@ conda activate mujo
 ```
 
 this should put you in the environment and make sure that the interpreter for the code is the one in the conda env. 
+dev 1 branch test

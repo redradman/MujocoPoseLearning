@@ -45,17 +45,32 @@ class HumanoidEnv(Env):
         self.frames = []
         self.renderer = None
         self.step_count = 0
+        self.init_qpos = self.data.qpos.copy()
+        self.init_qpos[2] = 1.282  # Set initial height
+        self.init_qpos[3:7] = [1, 0, 0, 0]  # Set quaternion to upright orientation
+        self.init_qvel = np.zeros_like(self.data.qvel)  # Zero initial velocities
         
         # Initialize renderer if we're going to render
         if self.render_mode == "rgb_array":
             print("Creating renderer during init")
             self.renderer = mujoco.Renderer(self.model)
+
+        sample_state = self._get_state()
+        obs_size = sample_state.size
+        # obs_size += self.data.crtl.size
                 
-        num_observations = self.model.nq + self.model.nv
+        # num_observations = (
+        #     self.model.nq +      # Joint positions
+        #     self.model.nv +      # Joint velocities
+        #     3 +                  # COM position (x, y, z)
+        #     3 +                  # COM velocity (x, y, z)
+        #     self.model.nbody * 6 # Contact forces (6D per body)
+        # )
+        
         self.observation_space = spaces.Box(
             low=-CLIP_OBSERVATION_VALUE,
             high=CLIP_OBSERVATION_VALUE,
-            shape=(num_observations,),
+            shape=(obs_size,),
             dtype=np.float64
         )
 
@@ -75,6 +90,25 @@ class HumanoidEnv(Env):
             np.random.seed(seed)
         
         mujoco.mj_resetData(self.model, self.data)
+        
+        # Set initial pose
+        self.data.qpos[:] = self.init_qpos.copy()
+        self.data.qvel[:] = self.init_qvel.copy()
+        
+        # Smaller noise for stability
+        pos_noise = np.random.uniform(low=-0.005, high=0.005, size=self.data.qpos.shape)
+        vel_noise = np.random.uniform(low=-0.005, high=0.005, size=self.data.qvel.shape)
+        
+        # Don't add noise to critical components
+        pos_noise[2] *= 0.1  # Reduce height noise
+        pos_noise[3:7] = 0  # No noise in orientation
+        
+        self.data.qpos[:] += pos_noise
+        self.data.qvel[:] += vel_noise
+        
+        # Forward the simulation a tiny bit to stabilize
+        for _ in range(1):
+            mujoco.mj_step(self.model, self.data)
         
         # Clear frames and renderer on reset
         self.frames = []
@@ -105,8 +139,20 @@ class HumanoidEnv(Env):
         return state, info
 
     def step(self, action):
-        """Execute one environment step."""
+        # Clip actions to valid range
+        # action = np.array(action, dtype=np.float32) * ACTION_CLIP_VALUE
+        
+        # Scale actions if they're coming from a [-1, 1] policy
+        # if np.any(np.abs(action) > ACTION_CLIP_VALUE):
+        #     action = action * (ACTION_CLIP_VALUE / np.max(np.abs(action)))
+        
+        # Apply actions
         self.data.ctrl[:] = action
+        # print(self.data.ctrl)
+        # Debug info
+        # if np.any(np.abs(self.data.ctrl) >= ACTION_CLIP_VALUE):
+            # print(f"Warning: Actions hitting bounds: {np.sum(np.abs(self.data.ctrl) >= ACTION_CLIP_VALUE)} times")
+        
         mujoco.mj_step(self.model, self.data)
         
         state = self._get_state()
@@ -117,37 +163,22 @@ class HumanoidEnv(Env):
         euler = self.quaternion_to_euler(orientation)
         roll, pitch = euler[0], euler[1]
         
-        ############# Check multiple conditions for truncation #############
+        ############# Minimal truncation conditions #############
         truncated = False
         truncation_info = {}
         
-        # Height check (too low or too high)
-        if height < 0.7:
+        # Only truncate for extreme cases
+        if height < 0.4:  # Very low height (basically collapsed)
             truncated = True
-            truncation_info['reason'] = 'too_low'
-        elif height > 2.0:  # Jumping/unstable behavior
+            truncation_info['reason'] = 'collapsed'
+            reward = -1.0  # Penalty for bad termination
+        elif abs(roll) > 1.5 or abs(pitch) > 1.5:  # ~85 degrees (nearly horizontal)
             truncated = True
-            truncation_info['reason'] = 'too_high'
-        
-        # Orientation check (falling over)
-        if abs(roll) > 1.0 or abs(pitch) > 1.0:
-            truncated = True
-            truncation_info['reason'] = 'bad_orientation'
-
-        # Joint angle limits
-        # joint_angles = self.data.qpos[7:]
-        # if np.any(np.abs(joint_angles) > 2.0):  # ~115 degrees
-        #     truncated = True
-        #     truncation_info['reason'] = 'joint_limit'
-        
-        # Energy consumption check
-        # if np.sum(np.square(self.data.ctrl)) > 100.0:
-        #     truncated = True
-        #     truncation_info['reason'] = 'excessive_force'
-        ###################### End check for truncation ######################
-
-        # Compute reward (will be 0 if truncated)
-        reward = self._compute_reward()
+            truncation_info['reason'] = 'extreme_tilt'
+            reward = -1.0  # Penalty for bad termination
+        else:
+            # Normal reward computation
+            reward = self._compute_reward()
         
         # Check for termination (episode timeout)
         terminated = self.data.time >= self.duration
@@ -176,10 +207,47 @@ class HumanoidEnv(Env):
         return state, reward, terminated, truncated, info
 
     def _get_state(self):
-        """Get the current state of the environment."""
-        qpos = self.data.qpos.copy()
-        qvel = self.data.qvel.copy()
-        state = np.concatenate([qpos, qvel])
+        """Get the current state of the environment.
+        
+        Returns a concatenated array of:
+        - Joint positions (qpos)
+        - Joint velocities (qvel)
+        - Center of mass position
+        - Center of mass velocity
+        - External contact forces
+        """
+        # # Basic state information
+        # qpos = self.data.qpos.copy()
+        # qvel = self.data.qvel.copy()
+        
+        # # Get center of mass position and velocity
+        # com_pos = self.data.subtree_com[0].copy()  # Position of the root body's center of mass
+        # com_vel = self.data.subtree_linvel[0].copy()  # Linear velocity of the root body's center of mass
+        
+        # # Get contact forces (external forces on the body)
+        # contact_force = self.data.cfrc_ext.copy().flatten()
+        
+        # # Concatenate all state components
+        # state = np.concatenate([
+        #     qpos,           # Joint positions
+        #     qvel,           # Joint velocities
+        #     com_pos,        # Center of mass position (3D)
+        #     com_vel,        # Center of mass velocity (3D)
+        # ])
+
+        position = self.data.qpos.flatten()
+        velocity = self.data.qvel.flatten()
+        com_inertia = self.data.cinert[1:].flatten()
+        com_velocity = self.data.cvel[1:].flatten()
+        state = np.concatenate(
+            (
+                position,
+                velocity,
+                com_inertia,
+                com_velocity, 
+            )
+        )
+
         return np.clip(state, -CLIP_OBSERVATION_VALUE, CLIP_OBSERVATION_VALUE)
 
     def _compute_reward(self):
@@ -219,13 +287,16 @@ class HumanoidEnv(Env):
         
         # Create renderer if it doesn't exist
         if self.renderer is None:
-            self.renderer = mujoco.Renderer(self.model)
+            self.renderer = mujoco.Renderer(self.model, height=480, width=640)
         
         # Match the working example exactly
         if len(self.frames) < self.data.time * self.framerate:
             self.renderer.update_scene(self.data)
+            # Explicitly select the 'back' camera
+            camera_id = self.model.camera('side').id
+            self.renderer.update_scene(self.data, camera=camera_id)
             pixels = self.renderer.render()
-            self.frames.append(pixels)  # Store raw pixels without conversion
+            self.frames.append(pixels)
 
     def save_video(self, episode_num):
         recordings_dir = Path("recordings")

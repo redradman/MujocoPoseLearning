@@ -8,8 +8,10 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-RENDER_INTERVAL = 200
+TOTAL_TIMESTEPS = 50_000_000
+RENDER_INTERVAL = 2500
 N_ENVS = 3
+REWARD_FUNCTION = "gym"
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
 
@@ -29,9 +31,9 @@ class VideoRecorderCallback(BaseCallback):
             "model_path": str(xml_path),
             "render_mode": "rgb_array",
             "framerate": 60,
-            "duration": 30.0,
+            "duration": 10.0,
             "reward_config": {
-                "type": "default",
+                "type": REWARD_FUNCTION,
             }
         })
         
@@ -54,7 +56,7 @@ class VideoRecorderCallback(BaseCallback):
                         obs = self.render_env.reset()[0]
                         done = False
                         while not done:
-                            action, _ = self.model.predict(obs, deterministic=True)
+                            action, _ = self.model.predict(obs, ) # removed deterministic = True 
                             obs, _, terminated, truncated, _ = self.render_env.step(action)
                             done = terminated or truncated
                         self.render_env.save_video(current_episode)
@@ -62,6 +64,49 @@ class VideoRecorderCallback(BaseCallback):
 
     def _on_rollout_end(self) -> None:
         pass  # Episode counting is now handled in _on_step
+
+class RewardStatsCallback(BaseCallback):
+    """
+    Callback for logging episode reward statistics to TensorBoard:
+    - mean episode reward
+    - min episode reward
+    - max episode reward
+    """
+    def __init__(self, verbose=0):
+        super().__init__(verbose)
+        self.episode_rewards = []
+        self.current_episode_reward = 0
+
+    def _on_step(self) -> bool:
+        # Get the most recent reward and add it to current episode total
+        rewards = self.locals['rewards']  # Get rewards for all envs
+        dones = self.locals['dones']      # Get done flags for all envs
+        
+        # Update current episode rewards
+        for reward, done in zip(rewards, dones):
+            self.current_episode_reward += reward
+            
+            if done:
+                # Episode finished, store the total reward
+                self.episode_rewards.append(self.current_episode_reward)
+                self.current_episode_reward = 0
+                
+                # Log stats if we have enough episodes
+                if len(self.episode_rewards) >= 10:  # Log every 10 episodes
+                    mean_reward = np.mean(self.episode_rewards)
+                    min_reward = np.min(self.episode_rewards)
+                    max_reward = np.max(self.episode_rewards)
+                    
+                    # Log to tensorboard
+                    self.logger.record("reward/mean_episode", mean_reward)
+                    self.logger.record("reward/min_episode", min_reward)
+                    self.logger.record("reward/max_episode", max_reward)
+                    
+                    # Clear buffer
+                    self.episode_rewards = []
+        
+        return True
+
 
 def make_env(env_config, rank):
     """
@@ -84,9 +129,9 @@ def main():
         "model_path": str(xml_path),
         "render_mode": None,
         "framerate": 60,
-        "duration": 30.0,
+        "duration": 10.0,
         "reward_config": {
-            "type": "default",
+            "type": REWARD_FUNCTION,
         }
     }
 
@@ -99,38 +144,61 @@ def main():
             pi=[256, 256],
             vf=[256, 256]
         ),
-        activation_fn=torch.nn.ReLU
+        activation_fn=torch.nn.Tanh,
+        # do not comment the two lines below. Seems to cause massive instability in the learning and huge KL divergence values when paired with ReLU
+        ortho_init=False,
+        log_std_init=-2
     )
 
+    def linear_schedule(initial_value, final_value):
+        def schedule(progress_remaining):
+            return final_value + progress_remaining * (initial_value - final_value)
+        return schedule
+
     # Create the model
+    # https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml can be used for guideance
     model = PPO(
         "MlpPolicy",
         env,
-        n_steps=512,
-        batch_size=128,
-        n_epochs=10,
-        gamma=0.995,
-        gae_lambda=0.95,
-        clip_range=0.2,
-        clip_range_vf=5.0,
-        ent_coef=0.1,
-        vf_coef=0.5,
-        max_grad_norm=0.6,
-        use_sde=True,
-        sde_sample_freq=4,
+        learning_rate=3e-5,
+        n_steps=2048,
+        batch_size=1024,
+        n_epochs=5,
+        gamma=0.99,
+        gae_lambda=0.9,
+        clip_range=0.3,
+        ent_coef=0.002,
+        max_grad_norm=2,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=policy_kwargs
     )
 
+    # model = PPO(
+        # "MlpPolicy",
+        # env,
+        # learning_rate=5e-5,
+        # n_steps=1024,
+        # batch_size=256,
+        # n_epochs=10,
+        # gamma=0.99,
+        # gae_lambda=0.9,
+        # clip_range=0.3,
+        # ent_coef=0.002,
+        # max_grad_norm=2,
+        # tensorboard_log=str(storage_path / "tensorboard_logs"),
+        # verbose=1,
+        # policy_kwargs=policy_kwargs
+    # )
+
     # Setup callbacks
     callbacks = CallbackList([
         ProgressBarCallback(),  # Progress bar
+        RewardStatsCallback(), # add reward stats to the tensorboard
         VideoRecorderCallback(render_interval=RENDER_INTERVAL, episode_counter=global_episode_count)  # Video recording
     ])
 
     # Train the model
-    TOTAL_TIMESTEPS = 1_000_000
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,
         callback=callbacks
@@ -138,6 +206,8 @@ def main():
 
     # Save the final model
     model.save(str(storage_path / "final_model"))
+
+    env.close()
 
 if __name__ == '__main__':
     main() 
