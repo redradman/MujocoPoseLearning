@@ -165,22 +165,24 @@ class HumanoidEnv(Env):
         euler = self.quaternion_to_euler(orientation)
         roll, pitch = euler[0], euler[1]
         
-        ############# Minimal truncation conditions #############
+        # Calculate reward first (before potential truncation)
+        reward = self._compute_reward()
+        
+        # More forgiving truncation conditions with grace period
         truncated = False
         truncation_info = {}
         
-        # Only truncate for extreme cases
-        if height < 0.5:  # More lenient height threshold
-            truncated = True
-            truncation_info['reason'] = 'collapsed'
-            reward = 0  # Penalty for bad termination
-        # elif abs(roll) > 2.0 or abs(pitch) > 2.0:  # More lenient orientation threshold
-        #     truncated = True
-        #     truncation_info['reason'] = 'extreme_tilt'
-        #     reward = -1.0  # Penalty for bad termination
-        else:
-            # Normal reward computation
-            reward = self._compute_reward()
+        # Give the agent a grace period at the start (e.g., 50 timesteps = 0.25 seconds)
+        if self.step_count > 50:  
+            if height < 0.3:  # More lenient height threshold
+                truncated = True
+                truncation_info['reason'] = 'collapsed'
+                # Don't zero out reward - let the agent learn from partial success
+                reward *= 0.2  # Reduce reward but don't eliminate it
+            # elif abs(roll) > 1.5 and abs(pitch) > 1.5:  # Both angles must be bad
+            #     truncated = True
+            #     truncation_info['reason'] = 'extreme_tilt'
+            #     reward *= 0.2
         
         # Check for termination (episode timeout)
         terminated = self.data.time >= self.duration

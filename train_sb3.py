@@ -9,9 +9,9 @@ import ctypes
 import numpy as np
 
 TOTAL_TIMESTEPS = 5_000_000
-RENDER_INTERVAL = 10_000
+RENDER_INTERVAL = 2_500
 N_ENVS = 8
-REWARD_FUNCTION = "time_based_stand"
+REWARD_FUNCTION = "another_stand"
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
 
@@ -162,9 +162,9 @@ def main():
         "MlpPolicy",
         env,
         learning_rate= 3.56987e-05,
-        n_steps=512,
+        n_steps=2048,
         batch_size=256,
-        n_epochs=5,
+        n_epochs=10,
         gamma=0.99,
         gae_lambda=0.9,
         clip_range=0.3,

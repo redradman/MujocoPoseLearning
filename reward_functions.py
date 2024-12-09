@@ -370,10 +370,10 @@ def humanoid_gym_reward(env_data, params=None):
     
     return reward
 
-def simple_standing_reward(env_data, params=None):
+def improved_standing_reward(env_data, params=None):
     """
-    Simple reward function focused on core standing behaviors.
-    Includes time-based incentives for learning from truncations.
+    Reward function with stronger emphasis on time alive and progressive difficulty,
+    aligned with lenient truncation at height < 0.3
     """
     # Core parameters
     target_height = 1.282
@@ -384,45 +384,33 @@ def simple_standing_reward(env_data, params=None):
     current_height = env_data.qpos[2]
     orientation = env_data.qpos[3:7]
     roll, pitch, _ = quaternion_to_euler(orientation)
+    time_alive = env_data.time
     
-    # Height reward (primary objective)
+    # Severe height penalty only when very low (matching truncation threshold)
+    if current_height < 0.3:
+        return 0.2 * (current_height / 0.3)  # Matches truncation scaling
+    
+    # Height-based reward scaling
     height_diff = current_height - target_height
     height_reward = np.exp(-height_weight * (height_diff ** 2))
     
-    # Orientation reward (secondary objective)
+    # Orientation reward with more tolerance
     orientation_reward = np.exp(-orientation_weight * (roll**2 + pitch**2))
     
-    # Time-based reward component
-    time_alive = env_data.time
-    time_reward = min(time_alive / 3.0, 1.0)  # Scales up to 1.0 over 10 seconds
+    # Time reward with exponential growth to encourage longer standing
+    time_reward = 1.0 - np.exp(-0.2 * time_alive)  # Faster growth
     
-    # Combine rewards with time incentive
-    reward = (0.6 * height_reward + 
-             0.2 * orientation_reward + 
-             0.2 * time_reward)
+    # Progressive weighting that heavily favors time after initial stability
+    time_weight = min(0.9 * (1.0 - np.exp(-0.5 * time_alive)), 0.9)  # Max 90% weight for time
+    posture_weight = 1.0 - time_weight
     
-    # Add small constant reward for staying alive
-    reward += 0.1
+    # Combine rewards with emphasis on time alive
+    reward = (posture_weight * (0.6 * height_reward + 0.4 * orientation_reward) +
+             time_weight * time_reward)
     
-    return reward
-
-def time_based_standing_reward(env_data, params=None):
-    """
-    Simple reward function that provides a reward based solely on the time the agent remains standing.
-    """
-    # Extract the current height of the agent
-    current_height = env_data.qpos[2]
-    
-    # Define a threshold height to consider the agent as "standing"
-    standing_threshold = 1.2  # Adjust based on your model's height when standing
-    
-    # Check if the agent is above the standing threshold
-    if current_height >= standing_threshold:
-        # Reward is proportional to the time alive
-        reward = env_data.time
-    else:
-        # If the agent is not standing, give a small penalty
-        reward = np.log(current_height)
+    # Larger survival bonus to encourage longer episodes
+    survival_bonus = 0.2 * (time_alive / 10.0)  # Scales up to 0.2 over 10 seconds
+    reward += survival_bonus
     
     return reward
 
@@ -433,6 +421,5 @@ REWARD_FUNCTIONS = {
     'stand_additive': humanoid_balanced_standing_reward,
     'walk': humanoid_walking_reward,
     'gym': humanoid_gym_reward,
-    'another_stand': simple_standing_reward,
-    'time_based_stand': time_based_standing_reward,
+    'another_stand': improved_standing_reward,
 }
