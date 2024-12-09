@@ -150,8 +150,8 @@ def main():
     # Define network architecture
     policy_kwargs = dict(
         net_arch=dict(
-            pi=[256, 128],
-            vf=[256, 128]
+            pi=[256, 256, 256],
+            vf=[256, 256, 256]
         ),
         activation_fn=torch.nn.ReLU,
         # do not comment the two lines below. Seems to cause massive instability in the learning and huge KL divergence values when paired with ReLU
@@ -170,7 +170,7 @@ def main():
         "MlpPolicy",
         env,
         learning_rate= 3e-05,
-        n_steps=512,
+        n_steps=2048,
         batch_size=256,
         n_epochs=5,
         gamma=0.99,
