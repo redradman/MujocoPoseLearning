@@ -8,8 +8,8 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-TOTAL_TIMESTEPS = 50_000_000
-RENDER_INTERVAL = 2500
+TOTAL_TIMESTEPS = 12_000_000
+RENDER_INTERVAL = 10_000
 N_ENVS = 8
 REWARD_FUNCTION = "gym"
 # Global synchronized counter
@@ -132,7 +132,8 @@ def main():
         "duration": 10.0,
         "reward_config": {
             "type": REWARD_FUNCTION,
-        }
+        },
+        "frame_skip": 5,
     }
 
     # Create vectorized environment
@@ -144,7 +145,7 @@ def main():
             pi=[256, 256],
             vf=[256, 256]
         ),
-        activation_fn=torch.nn.Tanh,
+        activation_fn=torch.nn.ReLU,
         # do not comment the two lines below. Seems to cause massive instability in the learning and huge KL divergence values when paired with ReLU
         ortho_init=False,
         log_std_init=-2
@@ -160,15 +161,16 @@ def main():
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=3e-5,
-        n_steps=2048,
-        batch_size=1024,
+        learning_rate= 3.56987e-05,
+        n_steps=512,
+        batch_size=256,
         n_epochs=5,
         gamma=0.99,
         gae_lambda=0.9,
         clip_range=0.3,
-        ent_coef=0.002,
+        ent_coef= 0.00238306,
         max_grad_norm=2,
+        vf_coef= 0.431892,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=policy_kwargs
