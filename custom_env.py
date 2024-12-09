@@ -143,67 +143,44 @@ class HumanoidEnv(Env):
 
     def step(self, action):
         """Modified step function to incorporate frame skipping"""
-        # Get position before simulation
-        qpos_before = self.data.qpos[0].copy()  # x-position before
-        
+        # Increment step counter before any checks
+        self.step_count += 1
+
         # Apply the action for frame_skip times
         for _ in range(self.frame_skip):
             self.data.ctrl[:] = action
             mujoco.mj_step(self.model, self.data)
         
-        # Get position after simulation
-        qpos_after = self.data.qpos[0]  # x-position after
-        
-        # Calculate velocity (change in position over time)
-        forward_velocity = (qpos_after - qpos_before) / (self.frame_skip * 0.005)  # Match XML timestep
-        
+        # Get state information
         state = self._get_state()
-        
-        # Get key state information
         height = self.data.qpos[2]
-        orientation = self.data.qpos[3:7]
-        euler = self.quaternion_to_euler(orientation)
-        roll, pitch = euler[0], euler[1]
-        
-        # Calculate reward first (before potential truncation)
+
+        # Calculate reward
         reward = self._compute_reward()
-        
-        # More forgiving truncation conditions with grace period
+
+        # Truncation condition with adjusted grace period
         truncated = False
         truncation_info = {}
-        
-        # Give the agent a grace period at the start (e.g., 50 timesteps = 0.25 seconds)
-        if self.step_count > 50:  
-            if height < 0.3:  # More lenient height threshold
-                truncated = True
-                truncation_info['reason'] = 'collapsed'
-                # Don't zero out reward - let the agent learn from partial success
-                reward *= 0.2  # Reduce reward but don't eliminate it
-            # elif abs(roll) > 1.5 and abs(pitch) > 1.5:  # Both angles must be bad
-            #     truncated = True
-            #     truncation_info['reason'] = 'extreme_tilt'
-            #     reward *= 0.2
-        
-        # Check for termination (episode timeout)
+
+        # Adjusted grace period steps (e.g., 240 steps for ~6 seconds)
+        if self.step_count > 300 and height < 0.8:
+            truncated = True
+            truncation_info['reason'] = 'collapsed'
+            reward *= 0.2  # Reduce reward but don't eliminate it
+
+        # Termination condition (episode timeout)
         terminated = self.data.time >= self.duration
-        
-        # Add detailed information to info dict
+
+        # Info dictionary
         info = {
             'reward_components': getattr(self, 'reward_components', {}),
             'height': height,
-            'orientation': {
-                'roll': roll,
-                'pitch': pitch
-            },
-            'forward_velocity': forward_velocity,
+            'step_count': self.step_count,
             'truncated': truncated,
             'truncation_info': truncation_info,
             'terminated': terminated
         }
-        
-        # Increment step counter
-        self.step_count += 1
-        
+
         # Render if needed
         if self.render_mode == "rgb_array":
             self.render()
