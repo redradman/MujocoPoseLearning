@@ -180,24 +180,30 @@ class HumanoidEnv(Env):
         #     self.grace_period_steps = 0
 
         # Truncation condition
-        min_height = 0.8
-        max_roll_pitch = np.pi / 4  # 45 degrees
+        # min_height = 0.8
+        # max_roll_pitch = np.pi / 4  # 45 degrees
+        # truncated = False
+        # truncation_info = {}
+
+        # if height < min_height:
+        #     truncated = True
+        #     truncation_info['reason'] = 'fallen'
+        #     reward = 0.0
+        # else:
+        #     # Check for excessive tilt
+        #     orientation = self.data.qpos[3:7]
+        #     roll, pitch, _ = quaternion_to_euler(orientation)
+
+        #     if abs(roll) > max_roll_pitch or abs(pitch) > max_roll_pitch:
+        #         truncated = True
+        #         truncation_info['reason'] = 'lost_balance'
+        #         reward = 0.0
         truncated = False
-        truncation_info = {}
-
-        if height < min_height:
+        if self.step_count >= 500:  # Force truncation after 1000 steps
             truncated = True
-            truncation_info['reason'] = 'fallen'
+            truncation_info['reason'] = 'timeout'
             reward = 0.0
-        else:
-            # Check for excessive tilt
-            orientation = self.data.qpos[3:7]
-            roll, pitch, _ = quaternion_to_euler(orientation)
 
-            if abs(roll) > max_roll_pitch or abs(pitch) > max_roll_pitch:
-                truncated = True
-                truncation_info['reason'] = 'lost_balance'
-                reward = 0.0
         # Termination condition (episode timeout)
         terminated = self.data.time >= self.duration
 
