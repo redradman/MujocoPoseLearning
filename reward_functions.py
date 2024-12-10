@@ -420,10 +420,9 @@ def standing_time_reward(env_data, params=None):
         return reward
     return reward
 
-def robust_standing_reward(env_data, params=None):
+def robust_kneeling_reward(env_data, params=None):
     """
-    A comprehensive reward function for robust humanoid standing based on multiple stability metrics.
-    Incorporates posture maintenance, CoM stability, foot placement, energy efficiency, and disturbance rejection.
+    After training the agent learn to kneel down (intially intended as a function to reamin standing)
     """
     # Default parameters with recommended values
     default_params = {
@@ -561,6 +560,7 @@ REWARD_FUNCTIONS = {
     'gym': humanoid_gym_reward,
     'another_stand': improved_standing_reward,
     'standing_time': standing_time_reward,
-    'robust_stand': robust_standing_reward,
+    'kneeling': robust_kneeling_reward,
     'simple_stand': simple_standing_reward
 }
+

@@ -11,9 +11,9 @@ import numpy as np
 TOTAL_TIMESTEPS = 5_000_000
 RENDER_INTERVAL = 1000
 N_ENVS = 8
-REWARD_FUNCTION = "robust_stand"
+REWARD_FUNCTION = "simple_stand"
 FRAME_SKIP = 3
-DURATION = 10.0
+DURATION = 10.0 # duration is deprecated. this is because the env is now truncated after N steps (for value of N look at the truncation in custom_env.py)
 FRAMERATE = 60
 
 # Global synchronized counter
@@ -166,7 +166,7 @@ def main():
         env,
         learning_rate=1e-4,
         n_steps=2048,
-        batch_size=64,
+        batch_size=128,
         n_epochs=10,
         gamma=0.99,
         gae_lambda=0.95,
