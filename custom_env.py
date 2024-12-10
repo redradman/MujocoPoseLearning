@@ -4,7 +4,6 @@ import mediapy as media
 from gymnasium import spaces, Env
 from pathlib import Path
 from reward_functions import REWARD_FUNCTIONS
-from reward_functions import quaternion_to_euler
 
 CLIP_OBSERVATION_VALUE = np.inf # decided on no clipping for now (might have to revise if experiencing exploding gradient problem)
 ACTION_CLIP_VALUE = 0.5 # allow the full range of motion
@@ -28,6 +27,7 @@ class HumanoidEnv(Env):
             self.frame_skip = env_config.get('frame_skip', 5)  # Default to 5 like gym
             self.grace_period_length = env_config.get('grace_period_length', 300)
             self.grace_period_steps = 0
+            self.total_reward = 0.0
         else:
             # For backward compatibility
             self.model_path = env_config
@@ -38,6 +38,7 @@ class HumanoidEnv(Env):
             self.reward_config = {'type': 'default'}
             self.frame_skip = 5
             self.grace_period_steps = 0
+            self.total_reward = 0.0
 
         print("Initializing environment with:")
         print(f"- model_path: {self.model_path}")
@@ -142,6 +143,7 @@ class HumanoidEnv(Env):
         }
         
         self.step_count = 0
+        self.total_reward = 0.0
         
         return state, info
 
@@ -161,10 +163,9 @@ class HumanoidEnv(Env):
 
         # Calculate reward
         reward = self._compute_reward()
+        self.total_reward += reward
 
         # Truncation condition with adjusted grace period
-        truncated = False
-        truncation_info = {}
 
         # Adjusted grace period steps (e.g., 240 steps for ~6 seconds)
         # grace_period_length = 100
@@ -199,7 +200,8 @@ class HumanoidEnv(Env):
         #         truncation_info['reason'] = 'lost_balance'
         #         reward = 0.0
         truncated = False
-        if self.step_count >= 500:  # Force truncation after 1000 steps
+        truncation_info = {}
+        if self.step_count >= 500:  # Force truncation after N steps
             truncated = True
             truncation_info['reason'] = 'timeout'
             reward = 0.0
@@ -214,7 +216,8 @@ class HumanoidEnv(Env):
             'step_count': self.step_count,
             'truncated': truncated,
             'truncation_info': truncation_info,
-            'terminated': terminated
+            'terminated': terminated,
+            'total_reward': self.total_reward
         }
 
         # Render if needed
