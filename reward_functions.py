@@ -511,6 +511,44 @@ def robust_standing_reward(env_data, params=None):
     # min reward is 0.0
     return reward
 
+def simple_standing_reward(env_data, params=None):
+    """
+    A simple reward function focused on maintaining upright posture and height.
+    Rewards:
+    1. Being at the right height
+    2. Staying upright
+    3. Minimizing movement
+    """
+    # Constants
+    target_height = 1.282
+    min_height = 0.8
+    
+    # Extract state
+    current_height = env_data.qpos[2]
+    orientation = env_data.qpos[3:7]
+    roll, pitch, _ = quaternion_to_euler(orientation)
+    
+    # Early termination with low reward if too low
+    if current_height < min_height:
+        return current_height**2 
+    
+    # Height reward (1.0 at target height, decreasing as we move away)
+    height_diff = current_height - target_height
+    height_reward = np.exp(-2.0 * (height_diff ** 2))
+    
+    # Orientation reward (1.0 when upright, decreasing as we tilt)
+    orientation_reward = np.exp(-3.0 * (roll ** 2 + pitch ** 2))
+    
+    # Movement penalty (1.0 when still, decreasing with movement)
+    velocity = env_data.qvel[0:6]  # Linear and angular velocity of torso
+    movement_reward = np.exp(-0.1 * np.sum(velocity ** 2))
+    
+    # Combine rewards (weighted sum)
+    reward = (0.4 * height_reward + 
+             0.4 * orientation_reward + 
+             0.2 * movement_reward)
+    
+    return reward
 
 # Dictionary mapping reward names to functions
 REWARD_FUNCTIONS = {
@@ -521,5 +559,6 @@ REWARD_FUNCTIONS = {
     'gym': humanoid_gym_reward,
     'another_stand': improved_standing_reward,
     'standing_time': standing_time_reward,
-    'robust_stand': robust_standing_reward
+    'robust_stand': robust_standing_reward,
+    'simple_stand': simple_standing_reward
 }
