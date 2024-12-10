@@ -170,7 +170,7 @@ def main():
         n_epochs=10,
         gamma=0.99,
         gae_lambda=0.95,
-        clip_range=0.1,
+        clip_range=0.2,
         # ent_coef=0.002,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
