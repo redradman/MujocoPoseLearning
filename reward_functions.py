@@ -437,7 +437,6 @@ def robust_standing_reward(env_data, params=None):
         'foot_weight': 0.1,
         'alive_weight': 0.1
     }
-    
     # Update default parameters with any provided ones
     params = {**default_params, **(params or {})}
     
@@ -447,7 +446,10 @@ def robust_standing_reward(env_data, params=None):
     current_height = qpos[2]
     orientation = qpos[3:7]  # quaternion
     time_alive = env_data.time
-    
+    # Low height check
+    if current_height < params['min_height']:
+        reward = current_height**2
+        return reward
     # 1. Posture Maintenance Component
     roll, pitch, _ = quaternion_to_euler(orientation)
     orientation_error = (roll ** 2 + pitch ** 2) / (params['max_roll_pitch'] ** 2)
@@ -503,9 +505,7 @@ def robust_standing_reward(env_data, params=None):
 
     # print(reward, posture_score, com_score, foot_balance, energy_efficiency, alive_bonus)
     
-    # Early termination check
-    if current_height < params['min_height']:
-        reward = current_height
+
     # without multiplication
     # max reward is 0.6 
     # min reward is 0.0

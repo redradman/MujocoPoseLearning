@@ -202,7 +202,7 @@ class HumanoidEnv(Env):
         #         reward = 0.0
         truncated = False
         truncation_info = {}
-        if self.step_count >= 500:  # Force truncation after N steps
+        if self.step_count >= 200:  # Force truncation after N steps
             truncated = True
             truncation_info['reason'] = 'timeout'
             reward = 0.0
