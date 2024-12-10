@@ -1,5 +1,5 @@
 import numpy as np
-from custom_env import quaternion_to_euler
+from utils import quaternion_to_euler
 """
 MuJoCo Environment Data Structure (env_data) Guide (for the humanoid MJCF model):
 

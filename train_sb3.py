@@ -175,7 +175,7 @@ def main():
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=dict(
-            log_std_init=-1,
+            log_std_init=-2,
             ortho_init=False,
             activation_fn=torch.nn.ReLU,
             net_arch=dict(

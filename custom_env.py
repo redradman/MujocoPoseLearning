@@ -3,6 +3,7 @@ import numpy as np
 import mediapy as media
 from gymnasium import spaces, Env
 from pathlib import Path
+# from utils import quaternion_to_euler
 from reward_functions import REWARD_FUNCTIONS
 
 CLIP_OBSERVATION_VALUE = np.inf # decided on no clipping for now (might have to revise if experiencing exploding gradient problem)
@@ -266,26 +267,6 @@ class HumanoidEnv(Env):
             raise ValueError(f"Unknown reward type: {reward_type}")
         
         return REWARD_FUNCTIONS[reward_type](self.data, reward_params)
-
-    def quaternion_to_euler(self, quat):
-        """Convert quaternion to euler angles."""
-        w, x, y, z = quat
-        
-        # Roll (x-axis rotation)
-        sinr_cosp = 2.0 * (w * x + y * z)
-        cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
-        roll = np.arctan2(sinr_cosp, cosr_cosp)
-        
-        # Pitch (y-axis rotation)
-        sinp = 2.0 * (w * y - z * x)
-        pitch = np.arcsin(sinp)
-        
-        # Yaw (z-axis rotation)
-        siny_cosp = 2.0 * (w * z + x * y)
-        cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
-        yaw = np.arctan2(siny_cosp, cosy_cosp)
-        
-        return np.array([roll, pitch, yaw])
 
     def render(self):
         """Render the current frame."""
