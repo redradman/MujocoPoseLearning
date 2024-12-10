@@ -8,7 +8,7 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-TOTAL_TIMESTEPS = 10_000_000
+TOTAL_TIMESTEPS = 5_000_000
 RENDER_INTERVAL = 1000
 N_ENVS = 8
 REWARD_FUNCTION = "robust_stand"
@@ -164,17 +164,18 @@ def main():
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=3e-4,
-        n_steps=2048,
+        learning_rate=5e-4,
+        n_steps=4096,
         batch_size=1024,
         n_epochs=20,
         gamma=0.99,
         gae_lambda=0.95,
         clip_range=0.2,
+        # ent_coef=0.02,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=dict(
-            log_std_init=-1,
+            log_std_init=-2,
             ortho_init=False,
             activation_fn=torch.nn.ReLU,
             net_arch=dict(
@@ -208,6 +209,7 @@ def main():
         VideoRecorderCallback(render_interval=RENDER_INTERVAL, episode_counter=global_episode_count)  # Video recording
     ])
 
+    model.save(str(storage_path / "params.yml"))
     # Train the model
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,

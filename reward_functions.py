@@ -521,7 +521,7 @@ def simple_standing_reward(env_data, params=None):
     """
     # Constants
     target_height = 1.282
-    min_height = 0.8
+    min_height = 0.9
     
     # Extract state
     current_height = env_data.qpos[2]
@@ -530,7 +530,7 @@ def simple_standing_reward(env_data, params=None):
     
     # Early termination with low reward if too low
     if current_height < min_height:
-        return (current_height)**2 
+        return current_height**5
     
     # Height reward (1.0 at target height, decreasing as we move away)
     height_diff = current_height - target_height

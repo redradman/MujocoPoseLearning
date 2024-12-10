@@ -7,7 +7,7 @@ from pathlib import Path
 from reward_functions import REWARD_FUNCTIONS
 
 CLIP_OBSERVATION_VALUE = np.inf # decided on no clipping for now (might have to revise if experiencing exploding gradient problem)
-ACTION_CLIP_VALUE = 0.6 # allow the full range of motion
+ACTION_CLIP_VALUE = 0.4 # allow the full range of motion
 
 class HumanoidEnv(Env):
     metadata = {
@@ -202,7 +202,7 @@ class HumanoidEnv(Env):
         #         reward = 0.0
         truncated = False
         truncation_info = {}
-        if self.step_count >= 500:  # Force truncation after N steps
+        if self.step_count >= 250:  # Force truncation after N steps
             truncated = True
             truncation_info['reason'] = 'timeout'
             reward = 0.0
