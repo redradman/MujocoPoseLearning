@@ -474,7 +474,7 @@ def robust_standing_reward(env_data, params=None):
     posture_reward = np.exp(-5.0 * orientation_error)
     
     # Height maintenance
-    height_error = np.abs(current_height - params['target_height'])
+    height_error = np.square(current_height - params['target_height'])
     height_reward = np.exp(-5.0 * height_error)
     
     # Combined posture reward
