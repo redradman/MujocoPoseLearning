@@ -123,9 +123,9 @@ def humanoid_standing_reward(env_data, params=None):
     # -----------------------
     # Multiply sub-rewards. Each is in [0,1], so the product will also be in [0,1].
     # This ensures overall normalization without needing division by a max value.
-    normalized_reward = (height_reward * 
-                         upright_reward**2 * 
-                         angular_velocity_reward * 
+    normalized_reward = (height_reward +
+                         upright_reward *
+                         angular_velocity_reward + 
                          time_standing_reward)
 
     # Save state for potential future use (e.g., smoothness calculation)
@@ -138,6 +138,8 @@ def humanoid_standing_reward(env_data, params=None):
     # Bounds:
     # lower_bound = 0.0
     # upper_bound = 1.0
+    if current_height < 1.0:
+        return np.log(current_height)
     return normalized_reward
 
 def humanoid_balanced_standing_reward(env_data, params=None):
@@ -368,10 +370,10 @@ def humanoid_gym_reward(env_data, params=None):
     
     return reward
 
-def simple_standing_reward(env_data, params=None):
+def improved_standing_reward(env_data, params=None):
     """
-    Simple reward function focused on core standing behaviors.
-    Includes time-based incentives for learning from truncations.
+    Reward function with stronger emphasis on time alive and progressive difficulty,
+    aligned with lenient truncation at height < 0.3
     """
     # Core parameters
     target_height = 1.282
@@ -382,27 +384,153 @@ def simple_standing_reward(env_data, params=None):
     current_height = env_data.qpos[2]
     orientation = env_data.qpos[3:7]
     roll, pitch, _ = quaternion_to_euler(orientation)
+    time_alive = env_data.time
     
-    # Height reward (primary objective)
+    # Severe height penalty only when very low (matching truncation threshold)
+    if current_height < 0.3:
+        return 0.2 * (current_height / 0.3)  # Matches truncation scaling
+    
+    # Height-based reward scaling
     height_diff = current_height - target_height
     height_reward = np.exp(-height_weight * (height_diff ** 2))
     
-    # Orientation reward (secondary objective)
+    # Orientation reward with more tolerance
     orientation_reward = np.exp(-orientation_weight * (roll**2 + pitch**2))
     
-    # Time-based reward component
-    time_alive = env_data.time
-    time_reward = min(time_alive / 10.0, 1.0)  # Scales up to 1.0 over 10 seconds
+    # Time reward with exponential growth to encourage longer standing
+    time_reward = 1.0 - np.exp(-0.2 * time_alive)  # Faster growth
     
-    # Combine rewards with time incentive
-    reward = (0.6 * height_reward + 
-             0.2 * orientation_reward + 
-             0.2 * time_reward)
+    # Progressive weighting that heavily favors time after initial stability
+    time_weight = min(0.9 * (1.0 - np.exp(-0.5 * time_alive)), 0.9)  # Max 90% weight for time
+    posture_weight = 1.0 - time_weight
     
-    # Add small constant reward for staying alive
-    reward += 0.1
+    # Combine rewards with emphasis on time alive
+    reward = (posture_weight * (0.6 * height_reward + 0.4 * orientation_reward) +
+             time_weight * time_reward)
+    
+    # Larger survival bonus to encourage longer episodes
+    survival_bonus = 0.2 * (time_alive / 10.0)  # Scales up to 0.2 over 10 seconds
+    reward += survival_bonus
     
     return reward
+
+def standing_time_reward(env_data, params=None):
+    # Default parameters
+    # target_height = params.get('target_height', 1.2) if params else 1.2
+    # min_height = params.get('min_height', 0.8) if params else 0.8
+    # height_weight = params.get('height_weight', 5.0) if params else 5.0
+    # orientation_weight = params.get('orientation_weight', 5.0) if params else 5.0
+    # time_weight = params.get('time_weight', 0.1) if params else 0.1
+
+    # # Extract state
+    current_height = env_data.qpos[2]
+    orientation = env_data.qpos[3:7]
+    roll, pitch, _ = quaternion_to_euler(orientation)
+    time_alive = env_data.time
+
+    # # Orientation reward (value between 0 and 1)
+    orientation_error = (roll ** 2 + pitch ** 2)
+    orientation_reward = 1 / np.exp(5 * orientation_error)
+
+    crtl = 1 / np.exp(np.square(env_data.ctrl).sum())
+    healthy_reward = 1/ np.exp((current_height - 1.282)**2) * time_alive
+    reward = healthy_reward + crtl + orientation_reward
+    if current_height < 0.85:
+        reward *= 0.2
+        return reward
+    return reward
+
+def robust_standing_reward(env_data, params=None):
+    """
+    A comprehensive reward function for robust humanoid standing based on multiple stability metrics.
+    Incorporates posture maintenance, CoM stability, foot placement, energy efficiency, and disturbance rejection.
+    """
+    # Default parameters with recommended values
+    default_params = {
+        'target_height': 1.282,  # Matching the target height from other reward functions
+        'min_height': 0.85,
+        'max_roll_pitch': np.pi / 6,  # 30 degrees
+        'com_radius': 0.1,  # Maximum allowed horizontal CoM displacement
+        'energy_weight': 0.3,
+        'posture_weight': 0.3,
+        'com_weight': 0.2,
+        'foot_weight': 0.1,
+        'alive_weight': 0.1
+    }
+    
+    # Update default parameters with any provided ones
+    params = {**default_params, **(params or {})}
+    
+    # Extract state information
+    qpos = env_data.qpos
+    qvel = env_data.qvel
+    current_height = qpos[2]
+    orientation = qpos[3:7]  # quaternion
+    time_alive = env_data.time
+    
+    # 1. Posture Maintenance Component
+    roll, pitch, _ = quaternion_to_euler(orientation)
+    orientation_error = (roll ** 2 + pitch ** 2) / (params['max_roll_pitch'] ** 2)
+    posture_reward = np.exp(-5.0 * orientation_error)
+    
+    # Height maintenance
+    height_error = np.abs(current_height - params['target_height'])
+    height_reward = np.exp(-5.0 * height_error)
+    
+    # Combined posture reward
+    posture_score = 0.7 * posture_reward + 0.3 * height_reward
+    
+    # 2. Center of Mass (CoM) Stability
+    com_pos = env_data.subtree_com[0]  # Get CoM position
+    com_vel = env_data.subtree_linvel[0]  # Get CoM velocity
+    
+    # Horizontal distance from center
+    com_horizontal_dist = np.sqrt(com_pos[0]**2 + com_pos[1]**2)
+    com_stability = np.exp(-10.0 * (com_horizontal_dist / params['com_radius']))
+    
+    # Penalize rapid CoM movements
+    com_vel_penalty = np.exp(-0.1 * np.sum(com_vel**2))
+    com_score = 0.7 * com_stability + 0.3 * com_vel_penalty
+    
+    # 3. Foot Contact Stability (using cfrc_ext instead of contact_force)
+    # Get external forces on feet (assuming they're the last bodies)
+    left_foot_force = np.sum(np.abs(env_data.cfrc_ext[-2]))
+    right_foot_force = np.sum(np.abs(env_data.cfrc_ext[-1]))
+    
+    # Encourage balanced foot contact
+    total_force = left_foot_force + right_foot_force + 1e-8  # Avoid division by zero
+    force_symmetry = min(left_foot_force, right_foot_force) / total_force
+    foot_balance = force_symmetry
+    
+    # 4. Energy Efficiency
+    # Calculate joint power as product of torque and velocity
+    actuator_velocities = qvel[6:]  # Skip root joint velocities
+    actuator_forces = env_data.qfrc_actuator[-len(actuator_velocities):]  # Match the size
+    joint_power = np.sum(np.square(actuator_forces * actuator_velocities))
+    energy_efficiency = np.exp(-0.01 * joint_power)
+    
+    # 5. Alive Bonus (increases with time, encourages staying upright)
+    alive_bonus = 1.0 - np.exp(-0.5 * time_alive)
+    
+    # Combine all components with weights
+    reward = (
+        params['posture_weight'] * posture_score +
+        params['com_weight'] * com_score +
+        params['foot_weight'] * foot_balance +
+        params['energy_weight'] * energy_efficiency +
+        params['alive_weight'] * alive_bonus
+    )
+
+    # print(reward, posture_score, com_score, foot_balance, energy_efficiency, alive_bonus)
+    
+    # Early termination check
+    if current_height < params['min_height']:
+        reward = 0.0
+    # without multiplication
+    # max reward is 0.6 
+    # min reward is 0.0
+    return reward
+
 
 # Dictionary mapping reward names to functions
 REWARD_FUNCTIONS = {
@@ -411,5 +539,7 @@ REWARD_FUNCTIONS = {
     'stand_additive': humanoid_balanced_standing_reward,
     'walk': humanoid_walking_reward,
     'gym': humanoid_gym_reward,
-    'another_stand': simple_standing_reward,
+    'another_stand': improved_standing_reward,
+    'standing_time': standing_time_reward,
+    'robust_stand': robust_standing_reward
 }

@@ -4,9 +4,10 @@ import mediapy as media
 from gymnasium import spaces, Env
 from pathlib import Path
 from reward_functions import REWARD_FUNCTIONS
+from reward_functions import quaternion_to_euler
 
 CLIP_OBSERVATION_VALUE = np.inf # decided on no clipping for now (might have to revise if experiencing exploding gradient problem)
-ACTION_CLIP_VALUE = 1 # allow the full range of motion
+ACTION_CLIP_VALUE = 0.5 # allow the full range of motion
 
 class HumanoidEnv(Env):
     metadata = {
@@ -19,19 +20,24 @@ class HumanoidEnv(Env):
         # Handle both dict and string inputs
         if isinstance(env_config, dict):
             self.model_path = env_config.get('model_path')
-            self.duration = env_config.get('duration', 3.8)
+            self.duration = env_config.get('duration', 15)
             self.framerate = env_config.get('framerate', 60)
             self.render_mode = env_config.get('render_mode')
             self.render_interval = env_config.get('render_interval', 100)
             self.reward_config = env_config.get('reward_config', {'type': 'default'})
+            self.frame_skip = env_config.get('frame_skip', 5)  # Default to 5 like gym
+            self.grace_period_length = env_config.get('grace_period_length', 300)
+            self.grace_period_steps = 0
         else:
             # For backward compatibility
             self.model_path = env_config
-            self.duration = 3.8
+            self.duration = 15
             self.framerate = 60
             self.render_mode = None
             self.render_interval = 100
             self.reward_config = {'type': 'default'}
+            self.frame_skip = 5
+            self.grace_period_steps = 0
 
         print("Initializing environment with:")
         print(f"- model_path: {self.model_path}")
@@ -39,6 +45,7 @@ class HumanoidEnv(Env):
         print(f"- framerate: {self.framerate}")
         print(f"- render_interval: {self.render_interval}")
         print(f"- reward_config: {self.reward_config}")
+        print(f"- frame_skip: {self.frame_skip}")
         
         self.model = mujoco.MjModel.from_xml_path(self.model_path)
         self.data = mujoco.MjData(self.model)
@@ -96,8 +103,8 @@ class HumanoidEnv(Env):
         self.data.qvel[:] = self.init_qvel.copy()
         
         # Smaller noise for stability
-        pos_noise = np.random.uniform(low=-0.005, high=0.005, size=self.data.qpos.shape)
-        vel_noise = np.random.uniform(low=-0.005, high=0.005, size=self.data.qvel.shape)
+        pos_noise = np.random.uniform(low=-0.01, high=0.01, size=self.data.qpos.shape)
+        vel_noise = np.random.uniform(low=-0.01, high=0.01, size=self.data.qvel.shape)
         
         # Don't add noise to critical components
         pos_noise[2] *= 0.1  # Reduce height noise
@@ -139,67 +146,71 @@ class HumanoidEnv(Env):
         return state, info
 
     def step(self, action):
-        # Clip actions to valid range
-        # action = np.array(action, dtype=np.float32) * ACTION_CLIP_VALUE
+        """Modified step function to incorporate frame skipping"""
+        # Increment step counter before any checks
+        self.step_count += 1
+
+        # Apply the action for frame_skip times
+        for _ in range(self.frame_skip):
+            self.data.ctrl[:] = action
+            mujoco.mj_step(self.model, self.data)
         
-        # Scale actions if they're coming from a [-1, 1] policy
-        # if np.any(np.abs(action) > ACTION_CLIP_VALUE):
-        #     action = action * (ACTION_CLIP_VALUE / np.max(np.abs(action)))
-        
-        # Apply actions
-        self.data.ctrl[:] = action
-        # print(self.data.ctrl)
-        # Debug info
-        # if np.any(np.abs(self.data.ctrl) >= ACTION_CLIP_VALUE):
-            # print(f"Warning: Actions hitting bounds: {np.sum(np.abs(self.data.ctrl) >= ACTION_CLIP_VALUE)} times")
-        
-        mujoco.mj_step(self.model, self.data)
-        
+        # Get state information
         state = self._get_state()
-        
-        # Get key state information
         height = self.data.qpos[2]
-        orientation = self.data.qpos[3:7]
-        euler = self.quaternion_to_euler(orientation)
-        roll, pitch = euler[0], euler[1]
-        
-        ############# Minimal truncation conditions #############
+
+        # Calculate reward
+        reward = self._compute_reward()
+
+        # Truncation condition with adjusted grace period
         truncated = False
         truncation_info = {}
-        
-        # Only truncate for extreme cases
-        if height < 0.4:  # Very low height (basically collapsed)
+
+        # Adjusted grace period steps (e.g., 240 steps for ~6 seconds)
+        # grace_period_length = 100
+        # if height < 0.8:
+        #     self.grace_period_steps += 1
+        #     if self.grace_period_steps >= grace_period_length:
+        #         truncated = True
+        #         truncation_info['reason'] = 'collapsed'
+        #         reward = 0  
+        #     else:
+        #         reward *= ((grace_period_length - self.step_count) / grace_period_length) * 0.3
+        # elif height > 0.8:
+        #     self.grace_period_steps = 0
+
+        # Truncation condition
+        min_height = 0.8
+        max_roll_pitch = np.pi / 4  # 45 degrees
+        truncated = False
+        truncation_info = {}
+
+        if height < min_height:
             truncated = True
-            truncation_info['reason'] = 'collapsed'
-            reward = -1.0  # Penalty for bad termination
-        elif abs(roll) > 1.5 or abs(pitch) > 1.5:  # ~85 degrees (nearly horizontal)
-            truncated = True
-            truncation_info['reason'] = 'extreme_tilt'
-            reward = -1.0  # Penalty for bad termination
+            truncation_info['reason'] = 'fallen'
+            reward = 0.0
         else:
-            # Normal reward computation
-            reward = self._compute_reward()
-        
-        # Check for termination (episode timeout)
+            # Check for excessive tilt
+            orientation = self.data.qpos[3:7]
+            roll, pitch, _ = quaternion_to_euler(orientation)
+
+            if abs(roll) > max_roll_pitch or abs(pitch) > max_roll_pitch:
+                truncated = True
+                truncation_info['reason'] = 'lost_balance'
+                reward = 0.0
+        # Termination condition (episode timeout)
         terminated = self.data.time >= self.duration
-        
-        # Add detailed information to info dict
+
+        # Info dictionary
         info = {
             'reward_components': getattr(self, 'reward_components', {}),
             'height': height,
-            'orientation': {
-                'roll': roll,
-                'pitch': pitch
-            },
-            'forward_velocity': self.data.qvel[0],
+            'step_count': self.step_count,
             'truncated': truncated,
             'truncation_info': truncation_info,
             'terminated': terminated
         }
-        
-        # Increment step counter
-        self.step_count += 1
-        
+
         # Render if needed
         if self.render_mode == "rgb_array":
             self.render()
@@ -216,39 +227,26 @@ class HumanoidEnv(Env):
         - Center of mass velocity
         - External contact forces
         """
-        # # Basic state information
-        # qpos = self.data.qpos.copy()
-        # qvel = self.data.qvel.copy()
-        
-        # # Get center of mass position and velocity
-        # com_pos = self.data.subtree_com[0].copy()  # Position of the root body's center of mass
-        # com_vel = self.data.subtree_linvel[0].copy()  # Linear velocity of the root body's center of mass
-        
-        # # Get contact forces (external forces on the body)
-        # contact_force = self.data.cfrc_ext.copy().flatten()
-        
-        # # Concatenate all state components
-        # state = np.concatenate([
-        #     qpos,           # Joint positions
-        #     qvel,           # Joint velocities
-        #     com_pos,        # Center of mass position (3D)
-        #     com_vel,        # Center of mass velocity (3D)
-        # ])
-
         position = self.data.qpos.flatten()
         velocity = self.data.qvel.flatten()
-        com_inertia = self.data.cinert[1:].flatten()
-        com_velocity = self.data.cvel[1:].flatten()
-        state = np.concatenate(
-            (
-                position,
-                velocity,
-                com_inertia,
-                com_velocity, 
-            )
-        )
+        # com_inertia = self.data.cinert.flatten()
+        # com_velocity = self.data.cvel.flatten()
+        # actuator_forces = self.data.qfrc_actuator.flatten()
+        # contact_forces = self.data.cfrc_ext[1:].flatten()
 
-        return np.clip(state, -CLIP_OBSERVATION_VALUE, CLIP_OBSERVATION_VALUE)
+        state = np.concatenate((
+            position[2:],
+            velocity,
+            # com_inertia,
+            # com_velocity,
+            # actuator_forces,
+            # contact_forces,
+        ))
+
+        # print(state)
+        # print("*-------*")
+
+        return state
 
     def _compute_reward(self):
         """Compute reward based on the configured reward function."""

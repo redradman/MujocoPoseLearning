@@ -8,10 +8,14 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-TOTAL_TIMESTEPS = 50_000_000
-RENDER_INTERVAL = 2500
+TOTAL_TIMESTEPS = 5_000_000
+RENDER_INTERVAL = 1000
 N_ENVS = 8
-REWARD_FUNCTION = "gym"
+REWARD_FUNCTION = "robust_stand"
+FRAME_SKIP = 3
+DURATION = 10.0
+FRAMERATE = 60
+
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
 
@@ -30,11 +34,12 @@ class VideoRecorderCallback(BaseCallback):
         self.render_env = HumanoidEnv({
             "model_path": str(xml_path),
             "render_mode": "rgb_array",
-            "framerate": 60,
-            "duration": 10.0,
+            "framerate": FRAMERATE,
+            "duration": DURATION,
             "reward_config": {
                 "type": REWARD_FUNCTION,
-            }
+            },
+            "frame_skip": FRAME_SKIP
         })
         
         # Initialize episode tracking for each env
@@ -132,24 +137,22 @@ def main():
         "duration": 10.0,
         "reward_config": {
             "type": REWARD_FUNCTION,
-        }
+            "params": {
+                "target_height": 1.2,
+                "min_height": 0.8,
+                "max_roll_pitch": np.pi / 6,
+                "height_weight": 1.0,
+                "orientation_weight": 1.0,
+                "time_weight": 0.1
+            }
+        },
+        "frame_skip": 3,
     }
 
     # Create vectorized environment
     env = SubprocVecEnv([make_env(env_config, i) for i in range(N_ENVS)])
 
     # Define network architecture
-    policy_kwargs = dict(
-        net_arch=dict(
-            pi=[256, 256],
-            vf=[256, 256]
-        ),
-        activation_fn=torch.nn.Tanh,
-        # do not comment the two lines below. Seems to cause massive instability in the learning and huge KL divergence values when paired with ReLU
-        ortho_init=False,
-        log_std_init=-2
-    )
-
     def linear_schedule(initial_value, final_value):
         def schedule(progress_remaining):
             return final_value + progress_remaining * (initial_value - final_value)
@@ -157,21 +160,29 @@ def main():
 
     # Create the model
     # https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml can be used for guideance
+    # https://github.com/openai/baselines/blob/master/baselines/ppo1/run_mujoco.py also very useful
     model = PPO(
         "MlpPolicy",
         env,
         learning_rate=3e-5,
         n_steps=2048,
-        batch_size=1024,
-        n_epochs=5,
+        batch_size=64,
+        n_epochs=10,
         gamma=0.99,
-        gae_lambda=0.9,
-        clip_range=0.3,
-        ent_coef=0.002,
-        max_grad_norm=2,
+        gae_lambda=0.95,
+        clip_range=0.2,
+        # max_grad_norm=2,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
-        policy_kwargs=policy_kwargs
+        policy_kwargs=dict(
+            log_std_init=-2,
+            ortho_init=False,
+            activation_fn=torch.nn.ReLU,
+            net_arch=dict(
+                pi=[128, 128], 
+                vf=[128, 128]
+            )
+        )
     )
 
     # model = PPO(
