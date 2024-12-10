@@ -1,4 +1,5 @@
 import numpy as np
+from custom_env import quaternion_to_euler
 """
 MuJoCo Environment Data Structure (env_data) Guide (for the humanoid MJCF model):
 
@@ -246,27 +247,6 @@ def humanoid_balanced_standing_reward(env_data, params=None):
         params["previous_qpos"] = env_data.qpos.copy()
 
     return normalized_reward
-
-
-def quaternion_to_euler(quat):
-    """Convert quaternion to euler angles (roll, pitch, yaw)."""
-    w, x, y, z = quat
-
-    # Roll
-    sinr_cosp = 2.0 * (w * x + y * z)
-    cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
-    roll = np.arctan2(sinr_cosp, cosr_cosp)
-
-    # Pitch
-    sinp = 2.0 * (w * y - z * x)
-    pitch = np.arcsin(np.clip(sinp, -1.0, 1.0))
-
-    # Yaw
-    siny_cosp = 2.0 * (w * z + x * y)
-    cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
-    yaw = np.arctan2(siny_cosp, cosy_cosp)
-
-    return np.array([roll, pitch, yaw])
 
 def humanoid_walking_reward(env_data, params=None):
     """
