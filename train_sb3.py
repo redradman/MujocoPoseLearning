@@ -9,7 +9,7 @@ import ctypes
 import numpy as np
 
 TOTAL_TIMESTEPS = 5_000_000
-RENDER_INTERVAL = 1000
+RENDER_INTERVAL = 2500
 N_ENVS = 8
 REWARD_FUNCTION = "robust_stand"
 FRAME_SKIP = 3
@@ -166,12 +166,13 @@ def main():
         env,
         learning_rate=3e-5,
         n_steps=2048,
-        batch_size=64,
+        batch_size=128,
         n_epochs=10,
         gamma=0.99,
         gae_lambda=0.95,
-        clip_range=0.2,
-        # max_grad_norm=2,
+        clip_range=0.3,
+        ent_coef=0.00234,
+        max_grad_norm=2,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=dict(
