@@ -146,7 +146,7 @@ def main():
                 "time_weight": 0.1
             }
         },
-        "frame_skip": 3,
+        "frame_skip": FRAME_SKIP,
     }
 
     # Create vectorized environment
