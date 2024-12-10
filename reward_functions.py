@@ -525,7 +525,7 @@ def robust_standing_reward(env_data, params=None):
     
     # Early termination check
     if current_height < params['min_height']:
-        reward = 0.0
+        reward = current_height
     # without multiplication
     # max reward is 0.6 
     # min reward is 0.0
