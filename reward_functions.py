@@ -530,7 +530,7 @@ def simple_standing_reward(env_data, params=None):
     
     # Early termination with low reward if too low
     if current_height < min_height:
-        return current_height**2 
+        return (current_height)**2 
     
     # Height reward (1.0 at target height, decreasing as we move away)
     height_diff = current_height - target_height
@@ -544,9 +544,11 @@ def simple_standing_reward(env_data, params=None):
     movement_reward = np.exp(-0.1 * np.sum(velocity ** 2))
     
     # Combine rewards (weighted sum)
-    reward = (0.4 * height_reward + 
-             0.4 * orientation_reward + 
-             0.2 * movement_reward)
+    reward = (0.5 * height_reward + 
+             0.25 * orientation_reward + 
+             0.25 * movement_reward)
+
+    # reward = height_reward * 5
     
     return reward
 

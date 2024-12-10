@@ -8,8 +8,8 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-TOTAL_TIMESTEPS = 5_000_000
-RENDER_INTERVAL = 2500
+TOTAL_TIMESTEPS = 10_000_000
+RENDER_INTERVAL = 1000
 N_ENVS = 8
 REWARD_FUNCTION = "robust_stand"
 FRAME_SKIP = 3
@@ -166,16 +166,15 @@ def main():
         env,
         learning_rate=3e-4,
         n_steps=2048,
-        batch_size=256,
-        n_epochs=10,
+        batch_size=1024,
+        n_epochs=20,
         gamma=0.99,
-        gae_lambda=0.9,
+        gae_lambda=0.95,
         clip_range=0.2,
-        # ent_coef=0.01,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=dict(
-            # log_std_init=-2,
+            log_std_init=-1,
             ortho_init=False,
             activation_fn=torch.nn.ReLU,
             net_arch=dict(
