@@ -229,13 +229,13 @@ class HumanoidEnv(Env):
         """
         position = self.data.qpos.flatten()
         velocity = self.data.qvel.flatten()
-        # com_inertia = self.data.cinert[1:].flatten()
-        # com_velocity = self.data.cvel[1:].flatten()
+        # com_inertia = self.data.cinert.flatten()
+        # com_velocity = self.data.cvel.flatten()
         # actuator_forces = self.data.qfrc_actuator.flatten()
         # contact_forces = self.data.cfrc_ext[1:].flatten()
 
         state = np.concatenate((
-            position,
+            position[2:],
             velocity,
             # com_inertia,
             # com_velocity,

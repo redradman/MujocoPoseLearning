@@ -8,10 +8,10 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-TOTAL_TIMESTEPS = 20_000_000
-RENDER_INTERVAL = 5000
+TOTAL_TIMESTEPS = 5_000_000
+RENDER_INTERVAL = 1000
 N_ENVS = 8
-REWARD_FUNCTION = "standing_time"
+REWARD_FUNCTION = "robust_stand"
 FRAME_SKIP = 3
 DURATION = 10.0
 FRAMERATE = 60
@@ -164,7 +164,7 @@ def main():
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=5e-5,
+        learning_rate=3e-5,
         n_steps=2048,
         batch_size=64,
         n_epochs=10,
