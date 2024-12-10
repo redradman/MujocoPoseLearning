@@ -43,6 +43,7 @@ def render_trained_model(model_path, num_steps=1000):
     # Save the video
     if len(env.frames) > 0:
         env.save_video(episode_num=-1) # save the demonstration as episode -1
+        print("Total reward: ", info.get('total_reward', 0))
     else:
         print("No frames were recorded!")
     

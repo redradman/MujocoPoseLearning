@@ -1,4 +1,5 @@
 import numpy as np
+from utils import quaternion_to_euler
 """
 MuJoCo Environment Data Structure (env_data) Guide (for the humanoid MJCF model):
 
@@ -247,27 +248,6 @@ def humanoid_balanced_standing_reward(env_data, params=None):
 
     return normalized_reward
 
-
-def quaternion_to_euler(quat):
-    """Convert quaternion to euler angles (roll, pitch, yaw)."""
-    w, x, y, z = quat
-
-    # Roll
-    sinr_cosp = 2.0 * (w * x + y * z)
-    cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
-    roll = np.arctan2(sinr_cosp, cosr_cosp)
-
-    # Pitch
-    sinp = 2.0 * (w * y - z * x)
-    pitch = np.arcsin(np.clip(sinp, -1.0, 1.0))
-
-    # Yaw
-    siny_cosp = 2.0 * (w * z + x * y)
-    cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
-    yaw = np.arctan2(siny_cosp, cosy_cosp)
-
-    return np.array([roll, pitch, yaw])
-
 def humanoid_walking_reward(env_data, params=None):
     """
     Computes a multiplicative ("AND"-style) reward to encourage a humanoid to walk forward at a desired speed 
@@ -457,7 +437,6 @@ def robust_standing_reward(env_data, params=None):
         'foot_weight': 0.1,
         'alive_weight': 0.1
     }
-    
     # Update default parameters with any provided ones
     params = {**default_params, **(params or {})}
     
@@ -467,14 +446,17 @@ def robust_standing_reward(env_data, params=None):
     current_height = qpos[2]
     orientation = qpos[3:7]  # quaternion
     time_alive = env_data.time
-    
+    # Low height check
+    if current_height < params['min_height']:
+        reward = current_height**2
+        return reward
     # 1. Posture Maintenance Component
     roll, pitch, _ = quaternion_to_euler(orientation)
     orientation_error = (roll ** 2 + pitch ** 2) / (params['max_roll_pitch'] ** 2)
     posture_reward = np.exp(-5.0 * orientation_error)
     
     # Height maintenance
-    height_error = np.abs(current_height - params['target_height'])
+    height_error = np.square(current_height - params['target_height'])
     height_reward = np.exp(-5.0 * height_error)
     
     # Combined posture reward
@@ -523,14 +505,52 @@ def robust_standing_reward(env_data, params=None):
 
     # print(reward, posture_score, com_score, foot_balance, energy_efficiency, alive_bonus)
     
-    # Early termination check
-    if current_height < params['min_height']:
-        reward = 0.0
+
     # without multiplication
     # max reward is 0.6 
     # min reward is 0.0
     return reward
 
+def simple_standing_reward(env_data, params=None):
+    """
+    A simple reward function focused on maintaining upright posture and height.
+    Rewards:
+    1. Being at the right height
+    2. Staying upright
+    3. Minimizing movement
+    """
+    # Constants
+    target_height = 1.282
+    min_height = 0.9
+    
+    # Extract state
+    current_height = env_data.qpos[2]
+    orientation = env_data.qpos[3:7]
+    roll, pitch, _ = quaternion_to_euler(orientation)
+    
+    # Early termination with low reward if too low
+    if current_height < min_height:
+        return current_height**5
+    
+    # Height reward (1.0 at target height, decreasing as we move away)
+    height_diff = current_height - target_height
+    height_reward = np.exp(-2.0 * (height_diff ** 2))
+    
+    # Orientation reward (1.0 when upright, decreasing as we tilt)
+    orientation_reward = np.exp(-3.0 * (roll ** 2 + pitch ** 2))
+    
+    # Movement penalty (1.0 when still, decreasing with movement)
+    velocity = env_data.qvel[0:6]  # Linear and angular velocity of torso
+    movement_reward = np.exp(-0.1 * np.sum(velocity ** 2))
+    
+    # Combine rewards (weighted sum)
+    reward = (0.5 * height_reward + 
+             0.25 * orientation_reward + 
+             0.25 * movement_reward)
+
+    # reward = height_reward * 5
+    
+    return reward
 
 # Dictionary mapping reward names to functions
 REWARD_FUNCTIONS = {
@@ -541,5 +561,6 @@ REWARD_FUNCTIONS = {
     'gym': humanoid_gym_reward,
     'another_stand': improved_standing_reward,
     'standing_time': standing_time_reward,
-    'robust_stand': robust_standing_reward
+    'robust_stand': robust_standing_reward,
+    'simple_stand': simple_standing_reward
 }

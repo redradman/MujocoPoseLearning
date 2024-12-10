@@ -3,11 +3,11 @@ import numpy as np
 import mediapy as media
 from gymnasium import spaces, Env
 from pathlib import Path
+# from utils import quaternion_to_euler
 from reward_functions import REWARD_FUNCTIONS
-from reward_functions import quaternion_to_euler
 
 CLIP_OBSERVATION_VALUE = np.inf # decided on no clipping for now (might have to revise if experiencing exploding gradient problem)
-ACTION_CLIP_VALUE = 0.5 # allow the full range of motion
+ACTION_CLIP_VALUE = 0.4 # allow the full range of motion
 
 class HumanoidEnv(Env):
     metadata = {
@@ -28,6 +28,7 @@ class HumanoidEnv(Env):
             self.frame_skip = env_config.get('frame_skip', 5)  # Default to 5 like gym
             self.grace_period_length = env_config.get('grace_period_length', 300)
             self.grace_period_steps = 0
+            self.total_reward = 0.0
         else:
             # For backward compatibility
             self.model_path = env_config
@@ -38,6 +39,7 @@ class HumanoidEnv(Env):
             self.reward_config = {'type': 'default'}
             self.frame_skip = 5
             self.grace_period_steps = 0
+            self.total_reward = 0.0
 
         print("Initializing environment with:")
         print(f"- model_path: {self.model_path}")
@@ -142,6 +144,7 @@ class HumanoidEnv(Env):
         }
         
         self.step_count = 0
+        self.total_reward = 0.0
         
         return state, info
 
@@ -161,10 +164,9 @@ class HumanoidEnv(Env):
 
         # Calculate reward
         reward = self._compute_reward()
+        self.total_reward += reward
 
         # Truncation condition with adjusted grace period
-        truncated = False
-        truncation_info = {}
 
         # Adjusted grace period steps (e.g., 240 steps for ~6 seconds)
         # grace_period_length = 100
@@ -180,24 +182,31 @@ class HumanoidEnv(Env):
         #     self.grace_period_steps = 0
 
         # Truncation condition
-        min_height = 0.8
-        max_roll_pitch = np.pi / 4  # 45 degrees
+        # min_height = 0.8
+        # max_roll_pitch = np.pi / 4  # 45 degrees
+        # truncated = False
+        # truncation_info = {}
+
+        # if height < min_height:
+        #     truncated = True
+        #     truncation_info['reason'] = 'fallen'
+        #     reward = 0.0
+        # else:
+        #     # Check for excessive tilt
+        #     orientation = self.data.qpos[3:7]
+        #     roll, pitch, _ = quaternion_to_euler(orientation)
+
+        #     if abs(roll) > max_roll_pitch or abs(pitch) > max_roll_pitch:
+        #         truncated = True
+        #         truncation_info['reason'] = 'lost_balance'
+        #         reward = 0.0
         truncated = False
         truncation_info = {}
-
-        if height < min_height:
+        if self.step_count >= 250:  # Force truncation after N steps
             truncated = True
-            truncation_info['reason'] = 'fallen'
+            truncation_info['reason'] = 'timeout'
             reward = 0.0
-        else:
-            # Check for excessive tilt
-            orientation = self.data.qpos[3:7]
-            roll, pitch, _ = quaternion_to_euler(orientation)
 
-            if abs(roll) > max_roll_pitch or abs(pitch) > max_roll_pitch:
-                truncated = True
-                truncation_info['reason'] = 'lost_balance'
-                reward = 0.0
         # Termination condition (episode timeout)
         terminated = self.data.time >= self.duration
 
@@ -208,7 +217,8 @@ class HumanoidEnv(Env):
             'step_count': self.step_count,
             'truncated': truncated,
             'truncation_info': truncation_info,
-            'terminated': terminated
+            'terminated': terminated,
+            'total_reward': self.total_reward
         }
 
         # Render if needed
@@ -257,26 +267,6 @@ class HumanoidEnv(Env):
             raise ValueError(f"Unknown reward type: {reward_type}")
         
         return REWARD_FUNCTIONS[reward_type](self.data, reward_params)
-
-    def quaternion_to_euler(self, quat):
-        """Convert quaternion to euler angles."""
-        w, x, y, z = quat
-        
-        # Roll (x-axis rotation)
-        sinr_cosp = 2.0 * (w * x + y * z)
-        cosr_cosp = 1.0 - 2.0 * (x * x + y * y)
-        roll = np.arctan2(sinr_cosp, cosr_cosp)
-        
-        # Pitch (y-axis rotation)
-        sinp = 2.0 * (w * y - z * x)
-        pitch = np.arcsin(sinp)
-        
-        # Yaw (z-axis rotation)
-        siny_cosp = 2.0 * (w * z + x * y)
-        cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
-        yaw = np.arctan2(siny_cosp, cosy_cosp)
-        
-        return np.array([roll, pitch, yaw])
 
     def render(self):
         """Render the current frame."""

@@ -146,7 +146,7 @@ def main():
                 "time_weight": 0.1
             }
         },
-        "frame_skip": 3,
+        "frame_skip": FRAME_SKIP,
     }
 
     # Create vectorized environment
@@ -164,23 +164,23 @@ def main():
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=3e-5,
+        learning_rate=1e-4,
         n_steps=2048,
         batch_size=64,
         n_epochs=10,
         gamma=0.99,
         gae_lambda=0.95,
-        clip_range=0.2,
-        # max_grad_norm=2,
+        clip_range=0.1,
+        # ent_coef=0.002,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=dict(
-            log_std_init=-2,
+            # log_std_init=-2,
             ortho_init=False,
             activation_fn=torch.nn.ReLU,
             net_arch=dict(
-                pi=[128, 128], 
-                vf=[128, 128]
+                pi=[64, 64], 
+                vf=[64, 64]
             )
         )
     )
@@ -209,6 +209,7 @@ def main():
         VideoRecorderCallback(render_interval=RENDER_INTERVAL, episode_counter=global_episode_count)  # Video recording
     ])
 
+    model.save(str(storage_path / "params.yml"))
     # Train the model
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,
