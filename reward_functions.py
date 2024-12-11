@@ -512,11 +512,11 @@ def robust_kneeling_reward(env_data, params=None):
 
 def simple_standing_reward(env_data, params=None):
     """
-    A simple reward function focused on maintaining upright posture and height.
-    Rewards:
-    1. Being at the right height
-    2. Staying upright
-    3. Minimizing movement
+    Enhanced reward function for stable standing that:
+    1. Provides stronger early rewards for basic stability
+    2. Allows for corrective movements
+    3. Includes time-based progression
+    4. Has smoother height penalties
     """
     # Constants
     target_height = 1.282
@@ -526,28 +526,91 @@ def simple_standing_reward(env_data, params=None):
     current_height = env_data.qpos[2]
     orientation = env_data.qpos[3:7]
     roll, pitch, _ = quaternion_to_euler(orientation)
+    time_alive = env_data.time
     
     # Early termination with low reward if too low
     if current_height < min_height:
-        return current_height**5
+        return 0.1 * (current_height / min_height)  # Smoother penalty
     
-    # Height reward (1.0 at target height, decreasing as we move away)
+    # Height reward (more lenient around target height)
+    height_diff = current_height - target_height
+    height_reward = np.exp(-1.0 * (height_diff ** 2))  # Reduced from -2.0
+    
+    # Orientation reward (slightly more tolerant of small tilts)
+    orientation_reward = np.exp(-2.0 * (roll ** 2 + pitch ** 2))  # Reduced from -3.0
+    
+    # Movement penalty (much more lenient to allow balance corrections)
+    velocity = env_data.qvel[0:6]
+    movement_reward = np.exp(-0.05 * np.sum(velocity ** 2))  # Reduced from -0.1
+    
+    # New: Time-based reward component
+    time_reward = 1.0 - np.exp(-0.5 * time_alive)  # Rewards longer standing
+    
+    # Combine rewards with adjusted weights
+    reward = (0.4 * height_reward + 
+             0.3 * orientation_reward + 
+             0.1 * movement_reward +
+             0.2 * time_reward)
+    
+    # Add small survival bonus
+    # reward += 0.1  # Constant bonus for staying alive
+    
+    return reward
+
+def walking_reward(env_data, params=None):
+    """
+    Reward function that encourages stable walking behavior with:
+    1. Forward velocity reward
+    2. Stability components (height, orientation)
+    3. Energy efficiency
+    4. Foot alternation
+    """
+    # Constants
+    target_velocity = 1.0  # Desired forward velocity (m/s)
+    target_height = 1.282  # Desired torso height
+    min_height = 0.8      # Minimum acceptable height
+    
+    # Extract state variables
+    current_height = env_data.qpos[2]
+    forward_velocity = env_data.qvel[0]  # x-axis velocity
+    orientation = env_data.qpos[3:7]
+    roll, pitch, _ = quaternion_to_euler(orientation)
+    
+    # Get foot contact forces (assuming last two bodies are feet)
+    left_foot_force = np.sum(np.abs(env_data.cfrc_ext[-2]))
+    right_foot_force = np.sum(np.abs(env_data.cfrc_ext[-1]))
+    
+    # Early termination for falling
+    if current_height < min_height:
+        return 0.0
+    
+    # 1. Velocity Reward: Gaussian around target velocity
+    velocity_diff = forward_velocity - target_velocity
+    velocity_reward = np.exp(-2.0 * (velocity_diff ** 2))
+    
+    # 2. Posture Reward
     height_diff = current_height - target_height
     height_reward = np.exp(-2.0 * (height_diff ** 2))
+    orientation_reward = np.exp(-3.0 * (roll**2 + pitch**2))
+    posture_reward = 0.5 * height_reward + 0.5 * orientation_reward
     
-    # Orientation reward (1.0 when upright, decreasing as we tilt)
-    orientation_reward = np.exp(-3.0 * (roll ** 2 + pitch ** 2))
+    # 3. Energy Efficiency: penalize excessive joint torques
+    torque_penalty = np.exp(-0.05 * np.sum(np.square(env_data.ctrl)))
     
-    # Movement penalty (1.0 when still, decreasing with movement)
-    velocity = env_data.qvel[0:6]  # Linear and angular velocity of torso
-    movement_reward = np.exp(-0.1 * np.sum(velocity ** 2))
+    # 4. Foot Alternation Reward
+    total_force = left_foot_force + right_foot_force + 1e-8
+    force_symmetry = min(left_foot_force, right_foot_force) / total_force
+    foot_reward = 1.0 - force_symmetry  # Reward alternating foot contacts
     
-    # Combine rewards (weighted sum)
-    reward = (0.5 * height_reward + 
-             0.25 * orientation_reward + 
-             0.25 * movement_reward)
-
-    # reward = height_reward * 5
+    # Combine rewards with weights
+    reward = (0.4 * velocity_reward +      # Primary objective
+             0.3 * posture_reward +        # Stability
+             0.2 * foot_reward +           # Walking pattern
+             0.1 * torque_penalty)         # Efficiency
+    
+    # Save state if needed
+    if params is not None:
+        params["previous_qpos"] = env_data.qpos.copy()
     
     return reward
 
@@ -561,6 +624,7 @@ REWARD_FUNCTIONS = {
     'another_stand': improved_standing_reward,
     'standing_time': standing_time_reward,
     'kneeling': robust_kneeling_reward,
-    'simple_stand': simple_standing_reward
+    'simple_stand': simple_standing_reward,
+    'walk_stable': walking_reward
 }
 
