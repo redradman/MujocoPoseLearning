@@ -162,10 +162,6 @@ class HumanoidEnv(Env):
         state = self._get_state()
         height = self.data.qpos[2]
 
-        # Calculate reward
-        reward = self._compute_reward()
-        self.total_reward += reward
-
         # Truncation condition with adjusted grace period
 
         # Adjusted grace period steps (e.g., 240 steps for ~6 seconds)
@@ -200,12 +196,16 @@ class HumanoidEnv(Env):
         #         truncated = True
         #         truncation_info['reason'] = 'lost_balance'
         #         reward = 0.0
+
+        reward = self._compute_reward()
+
         truncated = False
         truncation_info = {}
         if self.step_count >= 250:  # Force truncation after N steps
             truncated = True
             truncation_info['reason'] = 'timeout'
             reward = 0.0
+        self.total_reward += reward
 
         # Termination condition (episode timeout)
         terminated = self.data.time >= self.duration
