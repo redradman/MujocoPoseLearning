@@ -8,8 +8,8 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-TOTAL_TIMESTEPS = 50_000_000
-RENDER_INTERVAL = 1000
+TOTAL_TIMESTEPS = 20_000_000
+RENDER_INTERVAL = 2500
 N_ENVS = 8
 REWARD_FUNCTION = "walk_stable"
 FRAME_SKIP = 3
@@ -164,14 +164,14 @@ def main():
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=5e-5,
+        learning_rate=1e-4,
         n_steps=2048,
-        batch_size=256,
+        batch_size=128,
         n_epochs=20,
         gamma=0.99,
-        gae_lambda=0.9,
-        clip_range=0.3,
-        ent_coef=0.002,
+        gae_lambda=0.95,
+        clip_range=0.2,
+        # ent_coef=0.002,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=dict(
