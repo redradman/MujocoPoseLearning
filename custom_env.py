@@ -7,7 +7,7 @@ from pathlib import Path
 from reward_functions import REWARD_FUNCTIONS
 
 CLIP_OBSERVATION_VALUE = np.inf # decided on no clipping for now (might have to revise if experiencing exploding gradient problem)
-ACTION_CLIP_VALUE = 0.4 # allow the full range of motion
+ACTION_CLIP_VALUE = 1 # allow the full range of motion
 
 class HumanoidEnv(Env):
     metadata = {

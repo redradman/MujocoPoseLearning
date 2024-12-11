@@ -8,12 +8,12 @@ from multiprocessing import Value
 import ctypes
 import numpy as np
 
-TOTAL_TIMESTEPS = 5_000_000
+TOTAL_TIMESTEPS = 50_000_000
 RENDER_INTERVAL = 1000
 N_ENVS = 8
-REWARD_FUNCTION = "robust_stand"
+REWARD_FUNCTION = "walk_stable"
 FRAME_SKIP = 3
-DURATION = 10.0
+DURATION = 10.0 # duration is deprecated. this is because the env is now truncated after N steps (for value of N look at the truncation in custom_env.py)
 FRAMERATE = 60
 
 # Global synchronized counter
@@ -164,14 +164,14 @@ def main():
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=1e-4,
+        learning_rate=5e-5,
         n_steps=2048,
-        batch_size=64,
-        n_epochs=10,
+        batch_size=256,
+        n_epochs=20,
         gamma=0.99,
-        gae_lambda=0.95,
-        clip_range=0.1,
-        # ent_coef=0.002,
+        gae_lambda=0.9,
+        clip_range=0.3,
+        ent_coef=0.002,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
         policy_kwargs=dict(
