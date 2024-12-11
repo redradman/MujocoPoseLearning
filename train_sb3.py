@@ -11,7 +11,7 @@ import numpy as np
 TOTAL_TIMESTEPS = 20_000_000
 RENDER_INTERVAL = 2500
 N_ENVS = 8
-REWARD_FUNCTION = "walk_stable"
+REWARD_FUNCTION = "stand"
 FRAME_SKIP = 3
 DURATION = 10.0 # duration is deprecated. this is because the env is now truncated after N steps (for value of N look at the truncation in custom_env.py)
 FRAMERATE = 60
