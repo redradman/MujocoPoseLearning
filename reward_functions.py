@@ -557,7 +557,7 @@ def simple_standing_reward(env_data, params=None):
     
     return reward
 
-def walking_reward(env_data, params=None):
+def stand_reward(env_data, params=None):
     """
     Reward function that encourages stable walking behavior with:
     1. Forward velocity reward
@@ -617,7 +617,6 @@ def walking_reward(env_data, params=None):
 # Dictionary mapping reward names to functions
 REWARD_FUNCTIONS = {
     'default': humanoid_standing_reward,
-    'stand': humanoid_standing_reward,
     'stand_additive': humanoid_balanced_standing_reward,
     'walk': humanoid_walking_reward,
     'gym': humanoid_gym_reward,
@@ -625,6 +624,6 @@ REWARD_FUNCTIONS = {
     'standing_time': standing_time_reward,
     'kneeling': robust_kneeling_reward,
     'simple_stand': simple_standing_reward,
-    'walk_stable': walking_reward
+    'stand': stand_reward
 }
 
