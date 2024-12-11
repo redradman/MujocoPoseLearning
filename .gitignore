@@ -4,6 +4,7 @@ recordings/
 ipynb_checkpoints/
 *.ipynb
 sb3_results/
+trajectories/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
