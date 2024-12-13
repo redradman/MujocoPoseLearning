@@ -1,27 +1,45 @@
 from train_sb3 import train_humanoid
 import argparse
 import torch
+import importlib.util
+
+def load_config_from_file(config_path):
+    """Load configuration from a Python file."""
+    spec = importlib.util.spec_from_file_location("config", config_path)
+    config_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config_module)
+    
+    # Convert activation function string to actual torch class if needed
+    if 'policy_kwargs' in config_module.config.get('ppo_kwargs', {}):
+        activation_name = config_module.config['ppo_kwargs']['policy_kwargs'].get('activation_fn')
+        if isinstance(activation_name, str):
+            config_module.config['ppo_kwargs']['policy_kwargs']['activation_fn'] = getattr(torch.nn, activation_name)
+    
+    return config_module.config
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a humanoid with PPO')
     
+    # Add config file option
+    parser.add_argument('--config', type=str, help='Path to config file')
+    
     # Environment parameters
-    parser.add_argument('--total_timesteps', type=int, default=5_000_000,
+    parser.add_argument('--total_timesteps', type=int, default=20_000_000,
                         help='Total timesteps for training')
     parser.add_argument('--render_interval', type=int, default=2500,
-                        help='Interval between video recordings that will be saved to the recordings folder')
+                        help='Interval between video recordings')
     parser.add_argument('--n_envs', type=int, default=8,
-                        help='Number of parallel environments: change according to your spec')
+                        help='Number of parallel environments')
     parser.add_argument('--reward_function', type=str, default="walk",
-                        help='Type of reward function to use: default (which is {walk}), kneeling, stand')
+                        help='Type of reward function to use')
     parser.add_argument('--frame_skip', type=int, default=3,
-                        help='Number of frames to skip: frame_skip >= 0')
+                        help='Number of frames to skip')
     parser.add_argument('--framerate', type=int, default=60,
                         help='Framerate for rendering')
     
     # PPO hyperparameters
     parser.add_argument('--learning_rate', type=float, default=1e-4,
-                        help='Learning rate (lr)')
+                        help='Learning rate')
     parser.add_argument('--n_steps', type=int, default=2048,
                         help='Number of steps per update')
     parser.add_argument('--batch_size', type=int, default=128,
@@ -71,37 +89,43 @@ def print_training_info(args, env_kwargs, ppo_kwargs):
 def main():
     args = parse_args()
     
-    # Create policy kwargs dictionary
-    policy_kwargs = dict(
-        activation_fn=torch.nn.ReLU,
-        net_arch=dict(
-            pi=args.net_arch_pi,
-            vf=args.net_arch_vf
+    if args.config:
+        # Load configuration from file
+        config = load_config_from_file(args.config)
+        env_kwargs = config['env_kwargs']
+        ppo_kwargs = config['ppo_kwargs']
+    else:
+        # Create policy kwargs dictionary
+        policy_kwargs = dict(
+            activation_fn=torch.nn.ReLU,
+            net_arch=dict(
+                pi=args.net_arch_pi,
+                vf=args.net_arch_vf
+            )
         )
-    )
-    
-    # Create PPO kwargs dictionary
-    ppo_kwargs = dict(
-        learning_rate=args.learning_rate,
-        n_steps=args.n_steps,
-        batch_size=args.batch_size,
-        n_epochs=args.n_epochs,
-        gamma=args.gamma,
-        gae_lambda=args.gae_lambda,
-        clip_range=args.clip_range,
-        ent_coef=args.ent_coef,
-        policy_kwargs=policy_kwargs
-    )
-    
-    # Create environment kwargs dictionary
-    env_kwargs = dict(
-        total_timesteps=args.total_timesteps,
-        render_interval=args.render_interval,
-        n_envs=args.n_envs,
-        reward_function=args.reward_function,
-        frame_skip=args.frame_skip,
-        framerate=args.framerate
-    )
+        
+        # Create PPO kwargs dictionary
+        ppo_kwargs = dict(
+            learning_rate=args.learning_rate,
+            n_steps=args.n_steps,
+            batch_size=args.batch_size,
+            n_epochs=args.n_epochs,
+            gamma=args.gamma,
+            gae_lambda=args.gae_lambda,
+            clip_range=args.clip_range,
+            ent_coef=args.ent_coef,
+            policy_kwargs=policy_kwargs
+        )
+        
+        # Create environment kwargs dictionary
+        env_kwargs = dict(
+            total_timesteps=args.total_timesteps,
+            render_interval=args.render_interval,
+            n_envs=args.n_envs,
+            reward_function=args.reward_function,
+            frame_skip=args.frame_skip,
+            framerate=args.framerate
+        )
     
     # Print training configuration
     print_training_info(args, env_kwargs, ppo_kwargs)
