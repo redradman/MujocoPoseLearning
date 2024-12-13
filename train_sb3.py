@@ -2,29 +2,21 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, ProgressBarCallback
 from custom_env import HumanoidEnv
-import torch
 from pathlib import Path
 from multiprocessing import Value
 import ctypes
 import numpy as np
 
-TOTAL_TIMESTEPS = 20_000_000
-RENDER_INTERVAL = 2500
-N_ENVS = 8
-REWARD_FUNCTION = "stand"
-FRAME_SKIP = 3
-DURATION = 10.0 # duration is deprecated. this is because the env is now truncated after N steps (for value of N look at the truncation in custom_env.py)
-FRAMERATE = 60
-
 # Global synchronized counter
 global_episode_count = Value(ctypes.c_int, 0)
 
 class VideoRecorderCallback(BaseCallback):
-    def __init__(self, render_interval: int, episode_counter: Value, env_id: int = 0, verbose=1):
+    def __init__(self, render_interval: int, episode_counter: Value, env_kwargs: dict, env_id: int = 0, verbose=1):
         super().__init__(verbose)
         self.render_interval = render_interval
         self.env_id = env_id
         self.episode_counter = episode_counter
+        self.env_kwargs = env_kwargs  # Store env_kwargs as instance variable
         
     def _init_callback(self) -> None:
         # Create a single environment for rendering when callback is initialized
@@ -34,16 +26,16 @@ class VideoRecorderCallback(BaseCallback):
         self.render_env = HumanoidEnv({
             "model_path": str(xml_path),
             "render_mode": "rgb_array",
-            "framerate": FRAMERATE,
-            "duration": DURATION,
+            "framerate": self.env_kwargs.get('framerate', 60),  # Use instance variable
+            "duration": 10.0,
             "reward_config": {
-                "type": REWARD_FUNCTION,
+                "type": self.env_kwargs.get('reward_function', 'walk'),
             },
-            "frame_skip": FRAME_SKIP
+            "frame_skip": self.env_kwargs.get('frame_skip', 3)
         })
         
         # Initialize episode tracking for each env
-        self.episode_counts = np.zeros(N_ENVS, dtype=np.int32)
+        self.episode_counts = np.zeros(self.env_kwargs.get('n_envs', 8), dtype=np.int32)
 
     def _on_step(self) -> bool:
         # Check for episode terminations
@@ -112,7 +104,6 @@ class RewardStatsCallback(BaseCallback):
         
         return True
 
-
 def make_env(env_config, rank):
     """
     Utility function for multiprocessed env.
@@ -122,7 +113,7 @@ def make_env(env_config, rank):
         return env
     return _init
 
-def main():
+def train_humanoid(env_kwargs, ppo_kwargs):
     # Get the absolute path to your project root
     project_root = Path(__file__).parent
     xml_path = project_root / "XML" / "humanoid.xml"
@@ -133,10 +124,10 @@ def main():
     env_config = {
         "model_path": str(xml_path),
         "render_mode": None,
-        "framerate": 60,
+        "framerate": env_kwargs.get('framerate', 60),
         "duration": 10.0,
         "reward_config": {
-            "type": REWARD_FUNCTION,
+            "type": env_kwargs.get('reward_function', 'walk'),
             "params": {
                 "target_height": 1.2,
                 "min_height": 0.8,
@@ -146,17 +137,11 @@ def main():
                 "time_weight": 0.1
             }
         },
-        "frame_skip": FRAME_SKIP,
+        "frame_skip": env_kwargs.get('frame_skip', 3),
     }
 
     # Create vectorized environment
-    env = SubprocVecEnv([make_env(env_config, i) for i in range(N_ENVS)])
-
-    # Define network architecture
-    def linear_schedule(initial_value, final_value):
-        def schedule(progress_remaining):
-            return final_value + progress_remaining * (initial_value - final_value)
-        return schedule
+    env = SubprocVecEnv([make_env(env_config, i) for i in range(env_kwargs.get('n_envs', 8))])
 
     # Create the model
     # https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/ppo.yml can be used for guideance
@@ -164,62 +149,30 @@ def main():
     model = PPO(
         "MlpPolicy",
         env,
-        learning_rate=1e-4,
-        n_steps=2048,
-        batch_size=128,
-        n_epochs=20,
-        gamma=0.99,
-        gae_lambda=0.95,
-        clip_range=0.2,
-        # ent_coef=0.002,
         tensorboard_log=str(storage_path / "tensorboard_logs"),
         verbose=1,
-        policy_kwargs=dict(
-            # log_std_init=-2,
-            ortho_init=False,
-            activation_fn=torch.nn.ReLU,
-            net_arch=dict(
-                pi=[64, 64], 
-                vf=[64, 64]
-            )
-        )
+        **ppo_kwargs
     )
-
-    # model = PPO(
-        # "MlpPolicy",
-        # env,
-        # learning_rate=5e-5,
-        # n_steps=1024,
-        # batch_size=256,
-        # n_epochs=10,
-        # gamma=0.99,
-        # gae_lambda=0.9,
-        # clip_range=0.3,
-        # ent_coef=0.002,
-        # max_grad_norm=2,
-        # tensorboard_log=str(storage_path / "tensorboard_logs"),
-        # verbose=1,
-        # policy_kwargs=policy_kwargs
-    # )
 
     # Setup callbacks
     callbacks = CallbackList([
         ProgressBarCallback(),  # Progress bar
         RewardStatsCallback(), # add reward stats to the tensorboard
-        VideoRecorderCallback(render_interval=RENDER_INTERVAL, episode_counter=global_episode_count)  # Video recording
+        VideoRecorderCallback(
+            render_interval=env_kwargs.get('render_interval', 2500),
+            episode_counter=global_episode_count,
+            env_kwargs=env_kwargs  # Pass env_kwargs to the callback
+        )  # Video recording
     ])
 
     model.save(str(storage_path / "params.yml"))
     # Train the model
     model.learn(
-        total_timesteps=TOTAL_TIMESTEPS,
+        total_timesteps=env_kwargs.get('total_timesteps', 20_000_000),
         callback=callbacks
     )
 
     # Save the final model
     model.save(str(storage_path / "final_model"))
 
-    env.close()
-
-if __name__ == '__main__':
-    main() 
+    env.close() 

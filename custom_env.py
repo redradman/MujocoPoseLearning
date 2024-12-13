@@ -41,13 +41,13 @@ class HumanoidEnv(Env):
             self.grace_period_steps = 0
             self.total_reward = 0.0
 
-        print("Initializing environment with:")
-        print(f"- model_path: {self.model_path}")
-        print(f"- render_mode: {self.render_mode}")
-        print(f"- framerate: {self.framerate}")
-        print(f"- render_interval: {self.render_interval}")
-        print(f"- reward_config: {self.reward_config}")
-        print(f"- frame_skip: {self.frame_skip}")
+        # print("Initializing environment with:")
+        # print(f"- model_path: {self.model_path}")
+        # print(f"- render_mode: {self.render_mode}")
+        # print(f"- framerate: {self.framerate}")
+        # print(f"- render_interval: {self.render_interval}")
+        # print(f"- reward_config: {self.reward_config}")
+        # print(f"- frame_skip: {self.frame_skip}")
         
         self.model = mujoco.MjModel.from_xml_path(self.model_path)
         self.data = mujoco.MjData(self.model)
@@ -162,9 +162,6 @@ class HumanoidEnv(Env):
         state = self._get_state()
         height = self.data.qpos[2]
 
-        # Calculate reward
-        reward = self._compute_reward()
-        self.total_reward += reward
 
         # Truncation condition with adjusted grace period
 
@@ -206,6 +203,10 @@ class HumanoidEnv(Env):
             truncated = True
             truncation_info['reason'] = 'timeout'
             reward = 0.0
+        # Calculate reward if not truncated
+        else:
+            reward = self._compute_reward()
+        self.total_reward += reward
 
         # Termination condition (episode timeout)
         terminated = self.data.time >= self.duration
