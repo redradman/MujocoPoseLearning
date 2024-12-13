@@ -6,7 +6,7 @@ config = {
     # Environment parameters
     "env_kwargs": {
         "total_timesteps": 5_000_000,
-        "render_interval": 2500,
+        "render_interval": 100,
         "n_envs": 8,
         "reward_function": "walk",
         "frame_skip": 3,

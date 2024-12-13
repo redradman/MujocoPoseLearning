@@ -29,6 +29,7 @@ class HumanoidEnv(Env):
             self.grace_period_length = env_config.get('grace_period_length', 300)
             self.grace_period_steps = 0
             self.total_reward = 0.0
+            self.run_name = env_config.get('run_name')
         else:
             # For backward compatibility
             self.model_path = env_config
@@ -289,10 +290,15 @@ class HumanoidEnv(Env):
 
     def save_video(self, episode_num):
         recordings_dir = Path("recordings")
-        recordings_dir.mkdir(exist_ok=True)
+        
+        # If run_name is provided, create a subdirectory for this experiment
+        if hasattr(self, 'run_name'):
+            recordings_dir = recordings_dir / self.run_name
+        
+        recordings_dir.mkdir(parents=True, exist_ok=True)
         
         # Create video path inside recordings directory
-        video_path = recordings_dir / f"humanoid_episode_{episode_num}.mp4"
+        video_path = recordings_dir / f"episode_{episode_num}.mp4"
 
         # Delete existing file if it exists
         if video_path.exists():
@@ -306,7 +312,7 @@ class HumanoidEnv(Env):
                 codec='h264',
             )
         else:
-            print("No frames to save!")  # Debug print
+            print("No frames to save!")
         
         # Clear frames after saving
         self.frames = []
