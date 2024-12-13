@@ -115,35 +115,57 @@ def make_env(env_config, rank):
     return _init
 
 def generate_run_name(env_kwargs, ppo_kwargs):
-    """Generate a descriptive name from hyperparameters."""
-    # Extract all PPO parameters
-    components = [
-        f"lr{ppo_kwargs.get('learning_rate', 'unk')}",
-        f"bs{ppo_kwargs.get('batch_size', 'unk')}",
-        f"nsteps{ppo_kwargs.get('n_steps', 'unk')}",
-        f"nepochs{ppo_kwargs.get('n_epochs', 'unk')}",
-        f"gamma{ppo_kwargs.get('gamma', 'unk')}",
-        f"gae{ppo_kwargs.get('gae_lambda', 'unk')}",
-        f"clip{ppo_kwargs.get('clip_range', 'unk')}",
-        f"ent{ppo_kwargs.get('ent_coef', 'unk')}",
+    """Generate a descriptive name from hyperparameters with improved readability."""
+    
+    # PPO Algorithm parameters group
+    algo_params = [
+        f"lr={ppo_kwargs.get('learning_rate', 'unk')}",
+        f"bs={ppo_kwargs.get('batch_size', 'unk')}",
+        f"steps={ppo_kwargs.get('n_steps', 'unk')}",
+        f"epochs={ppo_kwargs.get('n_epochs', 'unk')}"
     ]
     
-    # Add network architecture if available
+    # PPO specific coefficients group
+    coef_params = [
+        f"gamma={ppo_kwargs.get('gamma', 'unk')}",
+        f"gae={ppo_kwargs.get('gae_lambda', 'unk')}",
+        f"clip={ppo_kwargs.get('clip_range', 'unk')}",
+        f"ent={ppo_kwargs.get('ent_coef', 'unk')}"
+    ]
+    
+    # Network architecture group
+    arch_params = []
     if 'policy_kwargs' in ppo_kwargs and 'net_arch' in ppo_kwargs['policy_kwargs']:
         net_arch = ppo_kwargs['policy_kwargs']['net_arch']
         if 'pi' in net_arch:
-            components.append(f"pi{'-'.join(map(str, net_arch['pi']))}")
+            pi_arch = '-'.join(str(x) for x in net_arch['pi'])
+            arch_params.append(f"pi={pi_arch}")
         if 'vf' in net_arch:
-            components.append(f"vf{'-'.join(map(str, net_arch['vf']))}")
+            vf_arch = '-'.join(str(x) for x in net_arch['vf'])
+            arch_params.append(f"vf={vf_arch}")
     
-    # Add environment parameters
-    components.extend([
-        f"nenvs{env_kwargs.get('n_envs', 'unk')}",
-        f"rew{env_kwargs.get('reward_function', 'unk')}"
-    ])
+    # Environment parameters group
+    env_params = [
+        f"envs={env_kwargs.get('n_envs', 'unk')}",
+        f"reward={env_kwargs.get('reward_function', 'unk')}",
+        f"total_steps={env_kwargs.get('total_timesteps', 'unk')}",
+        f"frame_skip={env_kwargs.get('frame_skip', 'unk')}"
+    ]
     
-    # Join components with underscores
-    return "PPO_" + "_".join(components)
+    # Combine all groups with clear separators
+    name_parts = [
+        "PPO",
+        "algo-" + ",".join(algo_params),
+        "coef-" + ",".join(coef_params)
+    ]
+    
+    if arch_params:
+        name_parts.append("arch-" + ",".join(arch_params))
+    
+    name_parts.append("env-" + ",".join(env_params))
+    
+    # Join with double underscores for major sections
+    return "__".join(name_parts)
 
 def train_humanoid(env_kwargs, ppo_kwargs):
     # Get the absolute path to your project root
