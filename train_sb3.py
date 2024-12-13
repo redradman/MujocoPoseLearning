@@ -202,8 +202,6 @@ def train_humanoid(env_kwargs, ppo_kwargs):
             run_name=run_name  # Pass run_name to the callback
         )  # Video recording
     ])
-
-    model.save(str(storage_path / "params.yml"))
     # Train the model
     model.learn(
         total_timesteps=env_kwargs.get('total_timesteps', 20_000_000),
