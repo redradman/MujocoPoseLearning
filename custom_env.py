@@ -241,17 +241,17 @@ class HumanoidEnv(Env):
         """
         position = self.data.qpos.flatten()
         velocity = self.data.qvel.flatten()
-        # com_inertia = self.data.cinert.flatten()
-        # com_velocity = self.data.cvel.flatten()
-        # actuator_forces = self.data.qfrc_actuator.flatten()
+        com_inertia = self.data.cinert.flatten()
+        com_velocity = self.data.cvel.flatten()
+        actuator_forces = self.data.qfrc_actuator.flatten()
         # contact_forces = self.data.cfrc_ext[1:].flatten()
-
+        # print(f"position[2:]: {position[2:]}, velocity: {velocity}, com_inertia: {com_inertia}, com_velocity: {com_velocity}, actuator_forces: {actuator_forces}, contact_forces: {contact_forces}")
         state = np.concatenate((
             position[2:],
             velocity,
-            # com_inertia,
-            # com_velocity,
-            # actuator_forces,
+            com_inertia,
+            com_velocity,
+            actuator_forces,
             # contact_forces,
         ))
 
