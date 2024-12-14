@@ -147,16 +147,21 @@ A variety of rewards functions were created and experimented with. Two key rewar
 - Visualization tools: `render_policy.py`, `generate_trajectories.py`
 - main file for starting training: `main.py`
 # Results
+The agent has been trained with the observation of position and velocity of the joints (without any additional data). Furthermore, unlike the humanoid-v5 environment in gymnasium, there is no restriction placed on the action space (gymnasium clips the value from -0.4 to 0.4 but this environment does not clip the action space). The agent is free to exercises maximum torque in the joints by sending maximum value of the control signal. However, in the both results obtained below the agent is being penalized for the energy expenditure. Therefore, the policy has to learn the optimal way to move the body to acheive the desired pose while minimizing the energy expenditure. 
+
+Additionally, the starting position and the intial velocity of the humanoid is being purturbed to test the robustness of the policy during the training to make improve the generalization of the policy 
+
+The key results that were acheived are the standing and kneeling poses.  
 ****
 ## Standing Reward Function Results
 
-| Video Example | Description |
+| Video | Description |
 |--------------|-------------|
-| ![Standing_episode_5000](https://github.com/user-attachments/assets/a54adad1-6fcd-48fa-82e8-cfd6492a0c5a) | Standing_episode_5000 |
-| ![Standing_episode_10000](https://github.com/user-attachments/assets/c484b76a-70a2-40a7-bdde-001cf3e6eda0) |  |
-| ![Standing_episode_20000](https://github.com/user-attachments/assets/9fe72f3c-4d95-4831-82eb-b53e979ccb13) |  |
-| ![Standing_episode_25000](https://github.com/user-attachments/assets/58ba04cd-b97e-4009-a561-7db00e216209) |  |
-| ![Standing Result](https://github.com/user-attachments/assets/b0977aa8-e676-445c-aabd-ba82e07c0198) | |
+| ![Standing_episode_5000](https://github.com/user-attachments/assets/a54adad1-6fcd-48fa-82e8-cfd6492a0c5a) | **Episode 5,000**: Humanoid is able to apply some torque to maintain the standing position for a short time but quickly loses balance |
+| ![Standing_episode_10000](https://github.com/user-attachments/assets/c484b76a-70a2-40a7-bdde-001cf3e6eda0) | **Episode 10,000**: Humanoid has learned to stand for a longer duration but still struggles with balance |
+| ![Standing_episode_20000](https://github.com/user-attachments/assets/9fe72f3c-4d95-4831-82eb-b53e979ccb13) | **Episode 20,000**: Humanoid is standing for even longer duration and can maintain a slight amount of balance before falling |
+| ![Standing_episode_25000](https://github.com/user-attachments/assets/58ba04cd-b97e-4009-a561-7db00e216209) | **Episode 25,000**: Humanoid has learned to use its hands and torso to maintain the standing position |
+| ![Standing Result](https://github.com/user-attachments/assets/b0977aa8-e676-445c-aabd-ba82e07c0198) | **Result (trained policy)**: More stable actions compared to episode 25,000 and the humanoid has learned to use its hand torso to maintain balance **while reducing the necessary torque needed for maintaining balance** |
 
 The standing reward function successfully achieved its primary objective of maintaining a stable upright posture. The agent learned to:
 - Maintain target height of 1.282m
@@ -164,14 +169,14 @@ The standing reward function successfully achieved its primary objective of main
 - Efficiently use joint torques
 - Distribute weight evenly between feet
 ## Kneeling Reward Function Results
-| Video Example | Description |
+| Video | Description |
 |--------------|-------------|
-| ![Kneeling_episode_1000](https://github.com/user-attachments/assets/a2ff63b6-5f2c-4c4a-9e37-7724c7853f14) |  |
-| ![Kneeling_episode_5000](https://github.com/user-attachments/assets/af8aeb74-92de-4297-a775-e1703434209f) |  |
-| ![Kneeling_episode_10000](https://github.com/user-attachments/assets/9a026161-527e-4101-a72e-16560bd648fe) |  |
-| ![Kneeling_episode_15000](https://github.com/user-attachments/assets/fd37038c-f5e0-4a75-8e2e-4fa78965013e) |  |
-| ![Kneeling_episode_20000](https://github.com/user-attachments/assets/1af0ab3b-6df5-472e-ab6f-24fd2102bfc3)|  |
-| ![Kneeling Result](https://github.com/user-attachments/assets/b3ccf65e-53e0-4e05-b0c5-65dd00b792de) |  |
+| ![Kneeling_episode_1000](https://github.com/user-attachments/assets/a2ff63b6-5f2c-4c4a-9e37-7724c7853f14) | **Episode 1,000**: Humanoid has learned to bend its knees and land on them but quickly loses balance |
+| ![Kneeling_episode_5000](https://github.com/user-attachments/assets/af8aeb74-92de-4297-a775-e1703434209f) | **Episode 5,000**: Humanoid has achieved the ability to bend its knees and have some balance. It quickly loses the balance but has learned to compensate for it and it is using its hands to prevent falling to the ground |
+| ![Kneeling_episode_10000](https://github.com/user-attachments/assets/9a026161-527e-4101-a72e-16560bd648fe) | **Episode 10,000**: Humanoid has learned to use its torso to maintain balance but it has not stabilized this learning and has not learn to prevent falling from the back |
+| ![Kneeling_episode_15000](https://github.com/user-attachments/assets/fd37038c-f5e0-4a75-8e2e-4fa78965013e) | **Episode 15,000**: Relatively stable results but with some jerky motions but the agent has learned to maintain position and does not fall |
+| ![Kneeling_episode_20000](https://github.com/user-attachments/assets/1af0ab3b-6df5-472e-ab6f-24fd2102bfc3)| **Episode 20,000**: Slightly less jerky motions and stable results suggesting policy convergence |
+| ![Kneeling Result](https://github.com/user-attachments/assets/b3ccf65e-53e0-4e05-b0c5-65dd00b792de) | **Result (trained policy)**: Learned to kneel fast and maintain the position and keep it stable without falling. Jerky motions are reduced in hands but still present in the legs |
 
 The kneeling reward function produced an unexpected but interesting result. While originally designed for standing, the agent discovered a stable kneeling posture that:
 - Minimizes energy expenditure
