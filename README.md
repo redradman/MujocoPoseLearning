@@ -164,8 +164,8 @@ The standing reward function successfully achieved its primary objective of main
 ## Kneeling Reward Function Results
 | Video Example | Description |
 |--------------|-------------|
-| <video width="320" height="240" controls><source src="https://github.com/redradman/WalkingAgentMujoco/blob/e212ae21490e1fa10bb40b1fe774d5b3adf038a3/results/kneeling/Kneeling_episode_1000.mp4" type="video/mp4"> | **Early Training (2.5M steps)**: <br>- Initial attempts at lowering center of mass<br>- Uncontrolled descents<br>- Frequent falls forward |
-| ![Kneeling Episode 5000](results/kneeling/episode_5000.mp4) | **Mid Training (5M steps)**: <br>- More controlled descent<br>- Better stability in lower positions<br>- Beginning of proper weight distribution |
+| <video src='results/kneeling/Kneeling_episode_1000.mp4' width=180/> | **Early Training (2.5M steps)**: <br>- Initial attempts at lowering center of mass<br>- Uncontrolled descents<br>- Frequent falls forward |
+| <video src='results/kneeling/Kneeling_episode_5000.mp4' width=180/> | **Mid Training (5M steps)**: <br>- More controlled descent<br>- Better stability in lower positions<br>- Beginning of proper weight distribution |
 | ![Kneeling Final](results/kneeling/episode_-1.mp4) | **Final Result**: <br>- Smooth transition to kneeling position<br>- Stable maintenance of posture<br>- Balanced weight distribution<br>- Minimal energy expenditure |
 
 The kneeling reward function produced an unexpected but interesting result. While originally designed for standing, the agent discovered a stable kneeling posture that:
