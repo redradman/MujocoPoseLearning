@@ -145,7 +145,7 @@ A variety of rewards functions were created and experimented with. Two key rewar
 - Visualization tools: `render_policy.py`, `generate_trajectories.py`
 - main file for starting training: `main.py`
 # Results
-The agent has been trained with the observation of position and velocity of the joints (without any additional data). Furthermore, unlike the humanoid-v5 environment in gymnasium, there is no restriction placed on the action space (gymnasium clips the value from -0.4 to 0.4 but this environment does not clip the action space). The agent is free to exercises maximum torque in the joints by sending maximum value of the control signal. However, in the both results obtained below the agent is being penalized for the energy expenditure. Therefore, the policy has to learn the optimal way to move the body to acheive the desired pose while minimizing the energy expenditure. 
+The agent has been trained with the observation space of position and velocity of the joints (without any additional data). Furthermore, unlike the humanoid-v5 environment in gymnasium, there is no restriction placed on the action space (gymnasium clips the value from -0.4 to 0.4 but this environment does not clip the action space). The agent is free to exercises maximum torque in the joints by sending maximum value of the control signal. However, in the both results obtained below the agent is being penalized for the energy expenditure. Therefore, the policy has to learn the optimal way to move the body to acheive the desired pose while minimizing the energy expenditure. 
 
 Additionally, the starting position and the intial velocity of the humanoid is being purturbed to test the robustness of the policy during the training to make improve the generalization of the policy 
 
