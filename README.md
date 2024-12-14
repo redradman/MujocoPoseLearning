@@ -169,7 +169,6 @@ The standing reward function successfully achieved its primary objective of main
 ## Kneeling Reward Function Results
 | Video | Description |
 |--------------|-------------|
-| ![Kneeling_episode_1000](https://github.com/user-attachments/assets/a2ff63b6-5f2c-4c4a-9e37-7724c7853f14) | **Episode 1,000**: Humanoid has learned to bend its knees and land on them but quickly loses balance |
 | ![Kneeling_episode_5000](https://github.com/user-attachments/assets/af8aeb74-92de-4297-a775-e1703434209f) | **Episode 5,000**: Humanoid has achieved the ability to bend its knees and have some balance. It quickly loses the balance but has learned to compensate for it and it is using its hands to prevent falling to the ground |
 | ![Kneeling_episode_10000](https://github.com/user-attachments/assets/9a026161-527e-4101-a72e-16560bd648fe) | **Episode 10,000**: Humanoid has learned to use its torso to maintain balance but it has not stabilized this learning and has not learn to prevent falling from the back |
 | ![Kneeling_episode_15000](https://github.com/user-attachments/assets/fd37038c-f5e0-4a75-8e2e-4fa78965013e) | **Episode 15,000**: Relatively stable results but with some jerky motions but the agent has learned to maintain position and does not fall |
