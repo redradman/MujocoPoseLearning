@@ -151,7 +151,7 @@ The agent has been trained with the observation of position and velocity of the 
 
 Additionally, the starting position and the intial velocity of the humanoid is being purturbed to test the robustness of the policy during the training to make improve the generalization of the policy 
 
-The key results that were acheived are the standing and kneeling poses.  
+The key results that were acheived are the standing and kneeling poses. For the hyperparams, take a look at the `config.py` file.
 ****
 ## Standing Reward Function Results
 
