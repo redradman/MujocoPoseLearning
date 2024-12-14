@@ -156,7 +156,7 @@ _For the hyperparams, take a look at the `config.py` file._
 ## Standing Reward Function Results
 
 | Video | Description |
-|--------------|-------------|
+|:--------------:|:-------------:|
 | ![Standing_episode_5000](https://github.com/user-attachments/assets/a54adad1-6fcd-48fa-82e8-cfd6492a0c5a) | **Episode 5,000**: Humanoid is able to apply some torque to maintain the standing position for a short time but quickly loses balance |
 | ![Standing_episode_10000](https://github.com/user-attachments/assets/c484b76a-70a2-40a7-bdde-001cf3e6eda0) | **Episode 10,000**: Humanoid has learned to stand for a longer duration but still struggles with balance |
 | ![Standing_episode_20000](https://github.com/user-attachments/assets/9fe72f3c-4d95-4831-82eb-b53e979ccb13) | **Episode 20,000**: Humanoid is standing for even longer duration and can maintain a slight amount of balance before falling |
@@ -170,7 +170,7 @@ The standing reward function successfully achieved its primary objective of main
 - Distribute weight evenly between feet
 ## Kneeling Reward Function Results
 | Video | Description |
-|--------------|-------------|
+|:--------------:|:------------:|
 | ![Kneeling_episode_5000](https://github.com/user-attachments/assets/af8aeb74-92de-4297-a775-e1703434209f) | **Episode 5,000**: Humanoid has achieved the ability to bend its knees and have some balance. It quickly loses the balance but has learned to compensate for it and it is using its hands to prevent falling to the ground |
 | ![Kneeling_episode_10000](https://github.com/user-attachments/assets/9a026161-527e-4101-a72e-16560bd648fe) | **Episode 10,000**: Humanoid has learned to use its torso to maintain balance but it has not stabilized this learning and has not learn to prevent falling from the back |
 | ![Kneeling_episode_15000](https://github.com/user-attachments/assets/fd37038c-f5e0-4a75-8e2e-4fa78965013e) | **Episode 15,000**: Relatively stable results but with some jerky motions but the agent has learned to maintain position and does not fall |
