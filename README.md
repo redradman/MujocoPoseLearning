@@ -163,10 +163,9 @@ The standing reward function successfully achieved its primary objective of main
 - Distribute weight evenly between feet
 
 ## Kneeling Reward Function Results
-
 | Video Example | Description |
 |--------------|-------------|
-| ![Kneeling Episode 2500](results/kneeling/Kneeling_episode_1000.mp4) | **Early Training (2.5M steps)**: <br>- Initial attempts at lowering center of mass<br>- Uncontrolled descents<br>- Frequent falls forward |
+| <video width="320" height="240" controls><source src="results/kneeling/Kneeling_episode_1000.mp4" type="video/mp4"> | **Early Training (2.5M steps)**: <br>- Initial attempts at lowering center of mass<br>- Uncontrolled descents<br>- Frequent falls forward |
 | ![Kneeling Episode 5000](results/kneeling/episode_5000.mp4) | **Mid Training (5M steps)**: <br>- More controlled descent<br>- Better stability in lower positions<br>- Beginning of proper weight distribution |
 | ![Kneeling Final](results/kneeling/episode_-1.mp4) | **Final Result**: <br>- Smooth transition to kneeling position<br>- Stable maintenance of posture<br>- Balanced weight distribution<br>- Minimal energy expenditure |
 
