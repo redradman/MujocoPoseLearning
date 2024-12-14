@@ -51,7 +51,36 @@ config = {
         }
     }
 ```
-### 3. Visualization and Analysis Tools
+### 3. Flexible Configuration Options
+- Command-line interface for customizing training parameters:
+  - **Environment Parameters:**
+    - `--total_timesteps`: Total timesteps for training (default: 20M)
+    - `--render_interval`: Interval between video recordings (default: 2500)
+    - `--n_envs`: Number of parallel environments (default: 8)
+    - `--reward_function`: Type of reward function to use (default: "walk")
+    - `--frame_skip`: Number of frames to skip (default: 3)
+    - `--framerate`: Framerate for rendering (default: 60)
+  
+  - **PPO Hyperparameters:**
+    - `--learning_rate`: Learning rate (default: 1e-4)
+    - `--n_steps`: Number of steps per update (default: 2048)
+    - `--batch_size`: Minibatch size (default: 128)
+    - `--n_epochs`: Number of epochs (default: 20)
+    - `--gamma`: Discount factor (default: 0.99)
+    - `--gae_lambda`: GAE lambda parameter (default: 0.95)
+    - `--clip_range`: Clipping parameter (default: 0.2)
+    - `--ent_coef`: Entropy coefficient (default: 0.0)
+  
+  - **Network Architecture:**
+    - `--net_arch_pi`: Policy network architecture (default: [64, 64])
+    - `--net_arch_vf`: Value function network architecture (default: [64, 64])
+  
+  - **Configuration File:**
+    - `--config`: Path to config file for loading predefined settings
+
+Example usage:
+
+### 4. Visualization and Analysis Tools
 - Real-time rendering during training set by `render_interval` saved to recording directory
 - Detailed state monitoring including:
 	- Tensorboard data saved in the `sb3_results` directory
