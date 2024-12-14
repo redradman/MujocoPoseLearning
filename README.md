@@ -152,9 +152,11 @@ A variety of rewards functions were created and experimented with. Two key rewar
 
 | Video Example | Description |
 |--------------|-------------|
-|  |  |
-|  |  |
-|  |  |
+| ![Standing_episode_5000](https://github.com/user-attachments/assets/a54adad1-6fcd-48fa-82e8-cfd6492a0c5a) | Standing_episode_5000 |
+| ![Standing_episode_10000](https://github.com/user-attachments/assets/c484b76a-70a2-40a7-bdde-001cf3e6eda0) |  |
+| ![Standing_episode_20000](https://github.com/user-attachments/assets/9fe72f3c-4d95-4831-82eb-b53e979ccb13) |  |
+| ![Standing_episode_25000](https://github.com/user-attachments/assets/58ba04cd-b97e-4009-a561-7db00e216209) |  |
+| ![Standing Result](https://github.com/user-attachments/assets/b0977aa8-e676-445c-aabd-ba82e07c0198) | |
 
 The standing reward function successfully achieved its primary objective of maintaining a stable upright posture. The agent learned to:
 - Maintain target height of 1.282m
@@ -164,9 +166,12 @@ The standing reward function successfully achieved its primary objective of main
 ## Kneeling Reward Function Results
 | Video Example | Description |
 |--------------|-------------|
-|  |  |
-|  |  |
-|  |  |
+| ![Kneeling_episode_1000](https://github.com/user-attachments/assets/a2ff63b6-5f2c-4c4a-9e37-7724c7853f14) |  |
+| ![Kneeling_episode_5000](https://github.com/user-attachments/assets/af8aeb74-92de-4297-a775-e1703434209f) |  |
+| ![Kneeling_episode_10000](https://github.com/user-attachments/assets/9a026161-527e-4101-a72e-16560bd648fe) |  |
+| ![Kneeling_episode_15000](https://github.com/user-attachments/assets/fd37038c-f5e0-4a75-8e2e-4fa78965013e) |  |
+| ![Kneeling_episode_20000](https://github.com/user-attachments/assets/1af0ab3b-6df5-472e-ab6f-24fd2102bfc3)|  |
+| ![Kneeling Result](https://github.com/user-attachments/assets/b3ccf65e-53e0-4e05-b0c5-65dd00b792de) |  |
 
 The kneeling reward function produced an unexpected but interesting result. While originally designed for standing, the agent discovered a stable kneeling posture that:
 - Minimizes energy expenditure
