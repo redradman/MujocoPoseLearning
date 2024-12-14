@@ -1,4 +1,4 @@
-# Humanoid Walking Agent using MuJoCo and Stable Baselines3
+# MuJoCo Pose Learning
 
 ## Project Overview
 This project implements a reinforcement learning system designed to teach a humanoid (the `humanoid.xml` file from mujoco) locomotion **without requiring reference motions or pre-trained weights**. The implementation uses **MuJoCo physics engine** for accurate simulation and **Stable Baselines3's PPO algorithm for training**, with a focus on creating a flexible and extensible framework for robotic motion research which allows for addition and selection of custom reward function 
@@ -57,7 +57,7 @@ config = {
     - `--total_timesteps`: Total timesteps for training (default: 20M)
     - `--render_interval`: Interval between video recordings (default: 2500)
     - `--n_envs`: Number of parallel environments (default: 8)
-    - `--reward_function`: Type of reward function to use (default: "walk")
+    - `--reward_function`: Type of reward function to use (default: "stand")
     - `--frame_skip`: Number of frames to skip (default: 3)
     - `--framerate`: Framerate for rendering (default: 60)
   
