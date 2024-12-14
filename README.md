@@ -2,8 +2,8 @@
 
 ## Project Overview
 This project implements a reinforcement learning system designed to teach a humanoid (the `humanoid.xml` file from mujoco) locomotion **without requiring reference motions or pre-trained weights**. The implementation uses **MuJoCo physics engine** for accurate simulation and **Stable Baselines3's PPO algorithm for training**, with a focus on creating a flexible and extensible framework for robotic motion research which allows for addition and selection of custom reward function 
-## Features
 
+## Features
 ### 1. Custom Environment Framework
 - Direct MuJoCo physics engine integration for precise simulation
 - Flexible environment configuration system
