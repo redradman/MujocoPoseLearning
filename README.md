@@ -78,8 +78,6 @@ config = {
   - **Configuration File:**
     - `--config`: Path to config file for loading predefined settings
 
-Example usage:
-
 ### 4. Visualization and Analysis Tools
 - Real-time rendering during training set by `render_interval` saved to recording directory
 - Detailed state monitoring including:
