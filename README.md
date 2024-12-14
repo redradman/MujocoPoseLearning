@@ -147,4 +147,34 @@ A variety of rewards functions were created and experimented with. Two key rewar
 - Visualization tools: `render_policy.py`, `generate_trajectories.py`
 - main file for starting training: `main.py`
 # Results
+****
+## Standing Reward Function Results
+
+| Video Example | Description |
+|--------------|-------------|
+| ![Standing Episode 2500](recordings/stand/episode_2500.mp4) | **Early Training (2.5M steps)**: <br>- Initial attempts at maintaining balance<br>- Frequent falls and unstable posture<br>- Basic understanding of height maintenance |
+| ![Standing Episode 5000](recordings/stand/episode_5000.mp4) | **Mid Training (5M steps)**: <br>- Improved stability<br>- Better height maintenance<br>- Some oscillation in torso orientation |
+| ![Standing Final](recordings/stand/episode_-1.mp4) | **Final Result**: <br>- Stable upright posture<br>- Minimal swaying<br>- Efficient energy usage<br>- Robust balance maintenance |
+
+The standing reward function successfully achieved its primary objective of maintaining a stable upright posture. The agent learned to:
+- Maintain target height of 1.282m
+- Keep balanced orientation with minimal deviation
+- Efficiently use joint torques
+- Distribute weight evenly between feet
+
+## Kneeling Reward Function Results
+
+| Video Example | Description |
+|--------------|-------------|
+| ![Kneeling Episode 2500](recordings/kneeling/episode_2500.mp4) | **Early Training (2.5M steps)**: <br>- Initial attempts at lowering center of mass<br>- Uncontrolled descents<br>- Frequent falls forward |
+| ![Kneeling Episode 5000](recordings/kneeling/episode_5000.mp4) | **Mid Training (5M steps)**: <br>- More controlled descent<br>- Better stability in lower positions<br>- Beginning of proper weight distribution |
+| ![Kneeling Final](recordings/kneeling/episode_-1.mp4) | **Final Result**: <br>- Smooth transition to kneeling position<br>- Stable maintenance of posture<br>- Balanced weight distribution<br>- Minimal energy expenditure |
+
+The kneeling reward function produced an unexpected but interesting result. While originally designed for standing, the agent discovered a stable kneeling posture that:
+- Minimizes energy expenditure
+- Maintains stable orientation
+- Achieves good balance
+- Effectively distributes contact forces
+
+Both reward functions demonstrate the ability of the PPO algorithm to find stable solutions, even if they're not the initially intended ones. The kneeling behavior emerged as a locally optimal solution that satisfied the reward criteria in an unexpected way.
 
